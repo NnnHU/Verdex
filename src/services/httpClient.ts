@@ -15,6 +15,7 @@
 
 import type { ChatMessage, ProtocolType } from "../types/moa";
 import i18n from "../i18n";
+import { lookupContextChars, tokensToChars } from "./modelContextDB";
 
 // Lazily import the Tauri HTTP plugin only when we detect we're in a webview.
 // Dynamic import keeps it out of the pure-browser dev bundle path.
@@ -455,6 +456,8 @@ export interface ProviderTestResult {
   message: string;
   /** How long the probe took in ms (for UX feedback). */
   ms: number;
+  /** If detected, the context window in chars (from API or built-in DB). */
+  detectedContextChars?: number;
 }
 
 /**
@@ -498,7 +501,52 @@ export async function testProvider(
     });
     const ms = Date.now() - started;
     if (res.ok) {
-      return { ok: true, message: i18n.t("errors.CONNECT_OK"), ms };
+      // Try to detect context window: first from /models API, then from DB.
+      let detectedChars: number | undefined;
+      try {
+        // Only attempt /models for OpenAI-protocol endpoints (Anthropic uses
+        // a different auth scheme + no /models endpoint).
+        if (protocol !== "anthropic") {
+          const modelsUrl = `${normalizeBase(provider.baseUrl)}/models`;
+          const modelsController = new AbortController();
+          const modelsTimer = setTimeout(
+            () => modelsController.abort(),
+            5000
+          );
+          const modelsRes = await fetchImpl(modelsUrl, {
+            headers: { Authorization: `Bearer ${provider.apiKey}` },
+            signal: modelsController.signal,
+          });
+          clearTimeout(modelsTimer);
+          if (modelsRes.ok) {
+            const modelsData = await modelsRes.json();
+            const modelsRaw = modelsData?.data ?? modelsData;
+            if (Array.isArray(modelsRaw)) {
+              const match = modelsRaw.find(
+                (m) =>
+                  (m as { id?: string }).id === provider.modelString ||
+                  (m as { id?: string }).id?.includes(provider.modelString)
+              );
+              const ctxTokens =
+                (match as { context_length?: number })?.context_length ??
+                (match as { context_window?: number })?.context_window;
+              if (ctxTokens) detectedChars = tokensToChars(ctxTokens);
+            }
+          }
+        }
+      } catch {
+        /* /models not supported — fall through to DB lookup */
+      }
+      // Fallback: built-in database.
+      if (!detectedChars) {
+        detectedChars = lookupContextChars(provider.modelString);
+      }
+      return {
+        ok: true,
+        message: i18n.t("errors.CONNECT_OK"),
+        ms,
+        detectedContextChars: detectedChars,
+      };
     }
     const errText = await res.text().catch(() => "");
     let detail = `HTTP ${res.status}`;

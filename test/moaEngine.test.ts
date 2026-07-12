@@ -9,8 +9,8 @@ import { describe, it, expect } from "vitest";
 import {
   checkInputLimits,
   parseJudgeResponse,
-  PROMPT_CHAR_LIMIT,
-  CONTEXT_CHAR_LIMIT,
+  DEFAULT_PROMPT_LIMIT,
+  DEFAULT_CONTEXT_LIMIT,
 } from "../src/services/moaEngine";
 
 /* ----------------------------- checkInputLimits ----------------------------- */
@@ -25,21 +25,21 @@ describe("checkInputLimits", () => {
   });
 
   it("rejects a prompt exactly at the limit + 1", () => {
-    const over = "a".repeat(PROMPT_CHAR_LIMIT + 1);
+    const over = "a".repeat(DEFAULT_PROMPT_LIMIT + 1);
     const res = checkInputLimits(over, "");
     expect(res.ok).toBe(false);
     expect(res.reason).toMatch(/too long/i);
-    expect(res.reason).toContain((PROMPT_CHAR_LIMIT + 1).toLocaleString());
+    expect(res.reason).toContain((DEFAULT_PROMPT_LIMIT + 1).toLocaleString());
   });
 
   it("accepts a prompt exactly at the limit", () => {
-    const at = "a".repeat(PROMPT_CHAR_LIMIT);
+    const at = "a".repeat(DEFAULT_PROMPT_LIMIT);
     expect(checkInputLimits(at, "").ok).toBe(true);
   });
 
   it("rejects when prompt + history exceed the context limit", () => {
     // Prompt alone is fine, but combined history pushes over the context cap.
-    const history = "x".repeat(CONTEXT_CHAR_LIMIT);
+    const history = "x".repeat(DEFAULT_CONTEXT_LIMIT);
     const res = checkInputLimits("hello", history);
     expect(res.ok).toBe(false);
     expect(res.reason).toMatch(/too long/i);
@@ -48,16 +48,16 @@ describe("checkInputLimits", () => {
 
   it("accepts when prompt + history exactly equal the context limit", () => {
     const prompt = "a".repeat(100);
-    const history = "b".repeat(CONTEXT_CHAR_LIMIT - 100);
+    const history = "b".repeat(DEFAULT_CONTEXT_LIMIT - 100);
     expect(checkInputLimits(prompt, history).ok).toBe(true);
   });
 
   it("reports a numeric reason that reflects combined length", () => {
-    const history = "y".repeat(CONTEXT_CHAR_LIMIT - 10);
+    const history = "y".repeat(DEFAULT_CONTEXT_LIMIT - 10);
     const res = checkInputLimits("z".repeat(20), history);
     expect(res.ok).toBe(false);
-    // Combined length is CONTEXT_CHAR_LIMIT + 10.
-    expect(res.reason).toContain((CONTEXT_CHAR_LIMIT + 10).toLocaleString());
+    // Combined length is DEFAULT_CONTEXT_LIMIT + 10.
+    expect(res.reason).toContain((DEFAULT_CONTEXT_LIMIT + 10).toLocaleString());
   });
 });
 

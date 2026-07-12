@@ -76,7 +76,12 @@ function ProviderRow({
               }
             >
               {testResult.ok
-                ? t("settingsModal.testOk", { ms: testResult.ms })
+                ? (testResult.detectedContextChars
+                  ? t("settingsModal.testOkWithContext", {
+                      ms: testResult.ms,
+                      tokens: Math.round(testResult.detectedContextChars / 4).toLocaleString(),
+                    })
+                  : t("settingsModal.testOk", { ms: testResult.ms }))
                 : t("settingsModal.testFail")}
             </span>
           )}
@@ -145,6 +150,27 @@ function ProviderRow({
               {t("settingsModal.protocolAnthropic")}
             </option>
           </select>
+        </label>
+        <label className="block">
+          <span className="mb-0.5 block text-[10px] uppercase tracking-wide text-ink-muted">
+            {t("settingsModal.maxContext")}
+          </span>
+          <input
+            type="number"
+            value={provider.capabilities?.maxContextChars ?? ""}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              onUpdate({
+                capabilities: {
+                  ...provider.capabilities,
+                  maxContextChars: val > 0 ? val : undefined,
+                },
+              });
+            }}
+            placeholder={t("settingsModal.maxContextPlaceholder")}
+            className={inputCls}
+            min={0}
+          />
         </label>
         <label className="block sm:col-span-2">
           <span className="mb-0.5 block text-[10px] uppercase tracking-wide text-ink-muted">
@@ -385,6 +411,15 @@ export function SettingsModal({
       const entries = await Promise.all(
         providers.map(async (p) => {
           const r = await testProvider(p);
+          // Auto-fill context window if detected and not already set.
+          if (r.ok && r.detectedContextChars && !p.capabilities?.maxContextChars) {
+            onUpdateProvider(p.id, {
+              capabilities: {
+                ...p.capabilities,
+                maxContextChars: r.detectedContextChars,
+              },
+            });
+          }
           return [p.id, r] as const;
         })
       );

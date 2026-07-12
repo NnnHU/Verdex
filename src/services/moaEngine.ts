@@ -107,13 +107,12 @@ export const DEFAULT_JUDGE_PROMPTS: JudgePromptTemplate[] = [
  * ------------------------------------------------------------------ */
 
 /**
- * Hard limits to protect API quota under the parallel MoA fan-out. Each panel
- * call carries the full prompt, so an 8k-char prompt × N panels escalates fast.
- * Character counts are a deliberate, conservative proxy for tokens (~4 chars ≈
- * 1 token) — cheap to compute, no network round-trip, and fails closed.
+ * Default limits to protect API quota under the parallel MoA fan-out. These
+ * are conservative fallbacks used when no provider context window is configured.
+ * ~4 chars ≈ 1 token, so 100K chars ≈ 25K tokens, 400K chars ≈ 100K tokens.
  */
-export const PROMPT_CHAR_LIMIT = 8_000;
-export const CONTEXT_CHAR_LIMIT = 32_000;
+export const DEFAULT_PROMPT_LIMIT = 100_000;
+export const DEFAULT_CONTEXT_LIMIT = 400_000;
 
 export interface InputLimitResult {
   ok: boolean;
@@ -124,32 +123,35 @@ export interface InputLimitResult {
 /**
  * Validate a single send against the input circuit breaker.
  *
- * @param prompt   The new user prompt.
- * @param history  Existing conversation context to measure the cumulative
- *                 window. Pass "" for a fresh session.
+ * @param prompt       The new user prompt.
+ * @param history      Existing conversation context (pass "" for fresh session).
+ * @param promptLimit  Max chars allowed for a single prompt.
+ * @param contextLimit Max chars allowed for prompt + cumulative history.
  */
 export function checkInputLimits(
   prompt: string,
-  history = ""
+  history = "",
+  promptLimit: number = DEFAULT_PROMPT_LIMIT,
+  contextLimit: number = DEFAULT_CONTEXT_LIMIT
 ): InputLimitResult {
   const promptLen = prompt.length;
-  if (promptLen > PROMPT_CHAR_LIMIT) {
+  if (promptLen > promptLimit) {
     return {
       ok: false,
       reason: i18n.t("errors.PROMPT_TOO_LONG", {
         len: promptLen.toLocaleString(),
-        limit: PROMPT_CHAR_LIMIT.toLocaleString(),
+        limit: promptLimit.toLocaleString(),
       }),
     };
   }
 
   const contextLen = history.length + promptLen;
-  if (contextLen > CONTEXT_CHAR_LIMIT) {
+  if (contextLen > contextLimit) {
     return {
       ok: false,
       reason: i18n.t("errors.CONTEXT_TOO_LONG", {
         len: contextLen.toLocaleString(),
-        limit: CONTEXT_CHAR_LIMIT.toLocaleString(),
+        limit: contextLimit.toLocaleString(),
       }),
     };
   }

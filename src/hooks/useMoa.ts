@@ -596,6 +596,8 @@ export function useMoa(): UseMoa {
       if (judgeProviders.length === 0) return;
 
       // --- Input circuit breaker -----------------------------------------
+      // Derive limits from the smallest selected panel's context window.
+      // If no panel has a configured context window, fall back to defaults.
       const history = session.messages
         .map(
           (t) =>
@@ -604,7 +606,23 @@ export function useMoa(): UseMoa {
               .join("\n")}`
         )
         .join("\n\n");
-      const limitCheck = checkInputLimits(trimmed, history);
+      const configuredLimits = panelProviders
+        .map((p) => p.capabilities?.maxContextChars)
+        .filter((v): v is number => typeof v === "number" && v > 0);
+      const minContext =
+        configuredLimits.length > 0 ? Math.min(...configuredLimits) : undefined;
+      const promptLimit = minContext
+        ? Math.floor(minContext * 0.5)
+        : undefined;
+      const contextLimit = minContext
+        ? Math.floor(minContext * 0.8)
+        : undefined;
+      const limitCheck = checkInputLimits(
+        trimmed,
+        history,
+        promptLimit,
+        contextLimit
+      );
       if (!limitCheck.ok) {
         setLastError(limitCheck.reason ?? i18n.t("errors.INPUT_INVALID"));
         return;

@@ -49,7 +49,7 @@ npm run build          # Frontend production build
 ## Usage
 
 1. **Add API Keys**: Sidebar → ⚙️ Settings → Providers tab → fill Base URL + API Key + model name for each provider
-2. **Test Connections**: Click "🔌 Test connection" to probe all providers (green = ok, red = error detail)
+2. **Test Connections**: Click "🔌 Test connection" to probe all providers (green = ok, red = error detail). Context window is auto-detected from the API or built-in database (40+ models) and shown in the badge (e.g. `✓ 234ms · 128K ctx`).
 3. **Choose Mode**: Config bar → toggle Simple or Advanced mode, select Panels and Judge
 4. **Ask**: Type in the input box, press `Ctrl/Cmd+Enter` to send
 
@@ -65,7 +65,7 @@ npm run build          # Frontend production build
 - **Judge synthesis**: Four-field structured verdict (consensus / divergence / blind spots / verdict)
 - **Multi-judge collision** (Advanced mode): Multiple judges produce independent verdicts, deliberately preserving disagreement
 - **Degraded fallback**: If the judge fails, raw Panel answers are shown directly
-- **Circuit breaker**: Input > 8,000 chars or cumulative context > 32,000 chars is rejected
+- **Smart circuit breaker**: Input limits auto-derived from the smallest selected model's context window (or built-in database of 40+ models). Test connection auto-detects context size from the API or DB.
 
 ### Dual Protocol Support
 | | OpenAI compatible | Anthropic native |
