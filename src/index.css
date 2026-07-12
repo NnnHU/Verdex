@@ -1,0 +1,214 @@
+@import "tailwindcss";
+
+/* ================================================================== *
+ * Verdex Theme System — CSS variables + Tailwind v4 @theme bridge
+ *
+ * Three themes: dark (default), light, soft.
+ * Switch via <html data-theme="dark|light|soft">.
+ * Components use semantic classes (bg-canvas, text-ink, etc.) that
+ * resolve through the @theme bridge to these variables.
+ * ================================================================== */
+
+/* ---- Dark theme (default, also the fallback) ---- */
+:root,
+[data-theme="dark"] {
+  --vd-canvas: #020617;          /* slate-950 */
+  --vd-surface: #0f172a;          /* slate-900 */
+  --vd-surface-2: #1e293b;        /* slate-800 */
+  --vd-surface-3: #334155;        /* slate-700 */
+  --vd-ink: #e2e8f0;              /* slate-200 */
+  --vd-ink-strong: #f1f5f9;       /* slate-100 */
+  --vd-ink-muted: #64748b;        /* slate-500 */
+  --vd-ink-faint: #475569;        /* slate-600 */
+  --vd-hairline: #1e293b;         /* slate-800 */
+  --vd-hairline-strong: #334155;  /* slate-700 */
+  --vd-accent: #2563eb;           /* blue-600 */
+  --vd-accent-hover: #1d4ed8;     /* blue-700 */
+  --vd-accent-soft: #3b82f6;      /* blue-500 (used with /opacity) */
+  --vd-on-accent: #ffffff;
+  --vd-success: #10b981;          /* emerald-500 */
+  --vd-error: #f43f5e;            /* rose-500 */
+  --vd-warning: #f59e0b;          /* amber-500 */
+  --vd-brand-from: #3b82f6;       /* blue-500 */
+  --vd-brand-to: #9333ea;         /* purple-600 */
+  /* Four verdict card tints (hue per field, used with /10 /20 opacity) */
+  --vd-card-consensus: #3b82f6;   /* blue */
+  --vd-card-divergence: #f97316;  /* orange */
+  --vd-card-blindspots: #a855f7;  /* purple */
+  --vd-card-verdict: #10b981;     /* emerald */
+  /* Scrollbar */
+  --vd-scrollbar: #334155;        /* slate-700 */
+  --vd-scrollbar-hover: #475569;  /* slate-600 */
+  /* Modal scrim */
+  --vd-scrim: rgba(0, 0, 0, 0.6);
+}
+
+/* ---- Light theme ---- */
+[data-theme="light"] {
+  --vd-canvas: #ffffff;
+  --vd-surface: #f8fafc;          /* slate-50 */
+  --vd-surface-2: #f1f5f9;        /* slate-100 */
+  --vd-surface-3: #e2e8f0;        /* slate-200 */
+  --vd-ink: #334155;              /* slate-700 */
+  --vd-ink-strong: #0f172a;       /* slate-900 */
+  --vd-ink-muted: #64748b;        /* slate-500 */
+  --vd-ink-faint: #94a3b8;        /* slate-400 */
+  --vd-hairline: #e2e8f0;         /* slate-200 */
+  --vd-hairline-strong: #cbd5e1;  /* slate-300 */
+  --vd-accent: #2563eb;           /* blue-600 */
+  --vd-accent-hover: #1d4ed8;     /* blue-700 */
+  --vd-accent-soft: #3b82f6;      /* blue-500 */
+  --vd-on-accent: #ffffff;
+  --vd-success: #059669;          /* emerald-600 */
+  --vd-error: #e11d48;            /* rose-600 */
+  --vd-warning: #d97706;          /* amber-600 */
+  --vd-brand-from: #3b82f6;       /* blue-500 */
+  --vd-brand-to: #8b5cf6;         /* violet-500 */
+  --vd-card-consensus: #3b82f6;
+  --vd-card-divergence: #f97316;
+  --vd-card-blindspots: #a855f7;
+  --vd-card-verdict: #10b981;
+  --vd-scrollbar: #cbd5e1;        /* slate-300 */
+  --vd-scrollbar-hover: #94a3b8;  /* slate-400 */
+  --vd-scrim: rgba(0, 0, 0, 0.4);
+}
+
+/* ---- Soft theme (warm neutral, low-saturation, easy on the eyes) ---- */
+[data-theme="soft"] {
+  --vd-canvas: #1c1b1f;           /* warm near-black with purple tint */
+  --vd-surface: #29272e;          /* warm charcoal */
+  --vd-surface-2: #36333c;        /* lifted warm charcoal */
+  --vd-surface-3: #454150;        /* highest warm surface */
+  --vd-ink: #d4cfd8;              /* warm off-white */
+  --vd-ink-strong: #ebe6ef;       /* warm bright */
+  --vd-ink-muted: #8e8896;        /* warm muted */
+  --vd-ink-faint: #6b6671;        /* warm faint */
+  --vd-hairline: #3a3742;         /* warm hairline */
+  --vd-hairline-strong: #4d4956;  /* warm strong hairline */
+  --vd-accent: #a78bfa;           /* violet-400 — softer than blue */
+  --vd-accent-hover: #8b5cf6;     /* violet-500 */
+  --vd-accent-soft: #a78bfa;      /* violet-400 */
+  --vd-on-accent: #1c1b1f;        /* dark text on light accent */
+  --vd-success: #6ee7b7;          /* emerald-300 — softer */
+  --vd-error: #fca5a5;            /* red-300 — softer */
+  --vd-warning: #fcd34d;          /* amber-300 — softer */
+  --vd-brand-from: #a78bfa;       /* violet-400 */
+  --vd-brand-to: #f0abfc;         /* fuchsia-300 */
+  --vd-card-consensus: #818cf8;   /* indigo-400 */
+  --vd-card-divergence: #fb923c;  /* orange-400 */
+  --vd-card-blindspots: #c084fc;  /* purple-400 */
+  --vd-card-verdict: #6ee7b7;     /* emerald-300 */
+  --vd-scrollbar: #4d4956;
+  --vd-scrollbar-hover: #5f5a6b;
+  --vd-scrim: rgba(0, 0, 0, 0.5);
+}
+
+/* ================================================================== *
+ * Tailwind v4 @theme bridge
+ * Maps CSS variables → Tailwind utility classes.
+ * Components can now use: bg-canvas, text-ink, border-hairline, etc.
+ * ================================================================== */
+@theme {
+  --color-canvas: var(--vd-canvas);
+  --color-surface: var(--vd-surface);
+  --color-surface-2: var(--vd-surface-2);
+  --color-surface-3: var(--vd-surface-3);
+  --color-ink: var(--vd-ink);
+  --color-ink-strong: var(--vd-ink-strong);
+  --color-ink-muted: var(--vd-ink-muted);
+  --color-ink-faint: var(--vd-ink-faint);
+  --color-hairline: var(--vd-hairline);
+  --color-hairline-strong: var(--vd-hairline-strong);
+  --color-accent: var(--vd-accent);
+  --color-accent-hover: var(--vd-accent-hover);
+  --color-accent-soft: var(--vd-accent-soft);
+  --color-on-accent: var(--vd-on-accent);
+  --color-success: var(--vd-success);
+  --color-error: var(--vd-error);
+  --color-warning: var(--vd-warning);
+  --color-brand-from: var(--vd-brand-from);
+  --color-brand-to: var(--vd-brand-to);
+  --color-card-consensus: var(--vd-card-consensus);
+  --color-card-divergence: var(--vd-card-divergence);
+  --color-card-blindspots: var(--vd-card-blindspots);
+  --color-card-verdict: var(--vd-card-verdict);
+}
+
+/* ================================================================== *
+ * Base styles
+ * ================================================================== */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--vd-canvas);
+  color: var(--vd-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans SC", "PingFang SC", "Microsoft YaHei",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---- Custom scrollbar ---- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--vd-scrollbar) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: var(--vd-scrollbar);
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--vd-scrollbar-hover);
+}
+
+/* ---- Pulsing dot for "thinking" state ---- */
+@keyframes verdex-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.verdex-dot {
+  animation: verdex-pulse 1.2s ease-in-out infinite;
+}
+
+/* ---- Shimmer for streaming text caret ---- */
+@keyframes verdex-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+.verdex-caret::after {
+  content: "▍";
+  margin-left: 1px;
+  animation: verdex-blink 1s step-end infinite;
+  color: var(--vd-accent);
+}
+
+/* ---- Sidebar slide ---- */
+.verdex-sidebar-transition {
+  transition: width 220ms ease, transform 220ms ease, opacity 200ms ease;
+}
