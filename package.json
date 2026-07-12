@@ -1,7 +1,7 @@
 {
   "name": "verdex",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Verdex — local Mixture-of-Agents (MoA) synthesis engine, built with Tauri 2.0 + React + TypeScript + Tailwind v4.",
   "scripts": {
