@@ -723,7 +723,8 @@ export function useMoa(): UseMoa {
               atts,
               memCfg.defaultMaxContextChars,
               memCfg.mapreduceTriggerRatio,
-              memCfg.mapreduceForce
+              memCfg.mapreduceForce,
+              memCfg.mapreduceDocCountThreshold
             )
           : null;
       const useMapReduce = mrDecision?.enabled ?? false;

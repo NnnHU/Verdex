@@ -104,8 +104,12 @@ export interface MemoryConfig {
   requestTimeoutMs: number;
   /** Stage 4 Map-Reduce force mode: auto | always | never. */
   mapreduceForce: "auto" | "always" | "never";
-  /** Stage 4 Map-Reduce trigger ratio (fraction of maxContextChars). */
+  /** Stage 4 Map-Reduce trigger ratio (fraction of maxContextChars): total
+   *  chars above this triggers. Default 0.4 (= 8万 at 20万 cap). 实测驱动. */
   mapreduceTriggerRatio: number;
+  /** Stage 4 Map-Reduce doc-count threshold: ≥ this many docs triggers.
+   *  Default 4. 实测: 份数多比字数大更拖慢(注意力切换成本). */
+  mapreduceDocCountThreshold: number;
   /** Stage 1b: model used for history summarization. Empty = use first judge. */
   summaryModel: string;
   /** Stage 1b: how many new turns beyond the recent window must accumulate
@@ -122,8 +126,9 @@ export function getMemoryConfig(): MemoryConfig {
   const forceRaw = str("VITE_VERDEX_MAPREDUCE_FORCE") ?? "auto";
   const mapreduceForceRaw: "auto" | "always" | "never" =
     forceRaw === "always" || forceRaw === "never" ? forceRaw : "auto";
-  const triggerRaw = num("VITE_VERDEX_MAPREDUCE_TRIGGER_RATIO", 0.6);
-  const mapreduceTriggerRatio = triggerRaw > 0 && triggerRaw <= 1 ? triggerRaw : 0.6;
+  const triggerRaw = num("VITE_VERDEX_MAPREDUCE_TRIGGER_RATIO", 0.4);
+  const mapreduceTriggerRatio = triggerRaw > 0 && triggerRaw <= 1 ? triggerRaw : 0.4;
+  const docCountThresholdRaw = num("VITE_VERDEX_MAPREDUCE_DOC_THRESHOLD", 4);
   cachedMemory = {
     recentTurns: Math.max(1, Math.floor(num("VITE_VERDEX_MEMORY_RECENT_TURNS", 8))),
     trimRatio: trimRatio > 0 && trimRatio <= 1 ? trimRatio : 0.75,
@@ -135,6 +140,7 @@ export function getMemoryConfig(): MemoryConfig {
     requestTimeoutMs: num("VITE_VERDEX_REQUEST_TIMEOUT_MS", 60000),
     mapreduceForce: mapreduceForceRaw,
     mapreduceTriggerRatio,
+    mapreduceDocCountThreshold: Math.max(2, Math.floor(docCountThresholdRaw)),
     summaryModel: str("VITE_VERDEX_SUMMARY_MODEL") ?? "",
     summaryInterval: Math.max(1, Math.floor(num("VITE_VERDEX_SUMMARY_INTERVAL", 4))),
   };

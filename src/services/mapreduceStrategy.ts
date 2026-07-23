@@ -34,20 +34,33 @@ export interface MapReduceDecision {
 /**
  * Decide whether to run Map-Reduce for the given corpus.
  *
- * @param attachments   The session's loaded documents.
- * @param maxContextChars Conservative per-call context cap (chars).
- * @param triggerRatio  Fraction of maxContextChars at which Map-Reduce kicks in.
- * @param forceMode     auto | always | never.
+ * Trigger logic (auto mode) — based on 2026-07-24 测试:
+ *   - 仂数 ≥ docCountThreshold (default 4) → trigger (many docs: parallel wins)
+ *   - OR 总字符 > maxContextChars × triggerRatio (default 0.4 = 8万) → trigger (too slow single-pass)
+ *   - otherwise → single-pass extract
+ * 实测依据: 5份/5.3万单次120s、7份/7.4万单次150s(慢)、3份/9.7万单次100s；
+ *           份数多比字数大更拖慢(模型切换注意力成本)。
+ *
+ * @param attachments      The session's loaded documents.
+ * @param maxContextChars  Conservative per-call context cap (chars).
+ * @param triggerRatio     Fraction of maxContextChars: total chars above this triggers.
+ * @param forceMode        auto | always | never.
+ * @param docCountThreshold Trigger when doc count ≥ this (default 4).
  */
 export function shouldMapReduce(
   attachments: Attachment[],
   maxContextChars: number,
   triggerRatio: number,
-  forceMode: MapReduceForceMode
+  forceMode: MapReduceForceMode,
+  docCountThreshold: number = 4
 ): MapReduceDecision {
   const totalChars = attachments.reduce((sum, a) => sum + a.chars, 0);
   const oversized = attachments.filter((a) => a.chars > maxContextChars);
-  const threshold = Math.floor(maxContextChars * triggerRatio);
+  const charThreshold = Math.floor(maxContextChars * triggerRatio);
+  const docCount = attachments.length;
+  // 实测驱动的双条件触发。
+  const byDocCount = docCount >= docCountThreshold;
+  const byChars = totalChars > charThreshold;
 
   if (forceMode === "never") {
     return {
@@ -60,14 +73,14 @@ export function shouldMapReduce(
   if (forceMode === "always") {
     return {
       enabled: true,
-      reason: `force=always (${attachments.length} docs, ${totalChars.toLocaleString()} chars)`,
+      reason: `force=always (${docCount} docs, ${totalChars.toLocaleString()} chars)`,
       totalChars,
       oversized,
     };
   }
 
   // auto
-  if (attachments.length <= 1) {
+  if (docCount <= 1) {
     return {
       enabled: false,
       reason: `single doc (${totalChars.toLocaleString()} chars) — extract pass-through`,
@@ -75,17 +88,20 @@ export function shouldMapReduce(
       oversized,
     };
   }
-  if (totalChars > threshold) {
+  if (byDocCount || byChars) {
+    const why = byDocCount
+      ? `${docCount} docs ≥ ${docCountThreshold} threshold`
+      : `${totalChars.toLocaleString()} chars > ${charThreshold.toLocaleString()} (${triggerRatio}× ctx)`;
     return {
       enabled: true,
-      reason: `${attachments.length} docs, ${totalChars.toLocaleString()} chars > ${threshold.toLocaleString()} threshold (${triggerRatio}× ctx)`,
+      reason: `${why} — Map-Reduce`,
       totalChars,
       oversized,
     };
   }
   return {
     enabled: false,
-    reason: `${attachments.length} docs, ${totalChars.toLocaleString()} chars ≤ threshold — single-pass extract`,
+    reason: `${docCount} docs (< ${docCountThreshold}), ${totalChars.toLocaleString()} chars (≤ ${charThreshold.toLocaleString()}) — single-pass extract`,
     totalChars,
     oversized,
   };
