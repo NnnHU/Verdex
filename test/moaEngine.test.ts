@@ -63,7 +63,13 @@ describe("checkInputLimits", () => {
 
 /* ----------------------------- parseJudgeResponse --------------------------- */
 
-describe("parseJudgeResponse", () => {
+/** Narrow a JudgeResponse to its verdict branch (throws if extract). */
+function asVerdict(res: ReturnType<typeof parseJudgeResponse>) {
+  if (res.kind !== "verdict") throw new Error("expected verdict kind");
+  return res;
+}
+
+describe("parseJudgeResponse (verdict mode, default)", () => {
   it("parses a clean JSON object with all four fields", () => {
     const raw = JSON.stringify({
       consensus: "共识A",
@@ -71,8 +77,9 @@ describe("parseJudgeResponse", () => {
       blindspots: "盲点C",
       verdict: "裁决D",
     });
-    const res = parseJudgeResponse(raw);
+    const res = asVerdict(parseJudgeResponse(raw));
     expect(res).toEqual({
+      kind: "verdict",
       consensus: "共识A",
       divergence: "分歧B",
       blindspots: "盲点C",
@@ -82,7 +89,7 @@ describe("parseJudgeResponse", () => {
 
   it("strips ```json code fences before parsing", () => {
     const raw = '```json\n{"consensus":"c","divergence":"d","blindspots":"b","verdict":"v"}\n```';
-    const res = parseJudgeResponse(raw);
+    const res = asVerdict(parseJudgeResponse(raw));
     expect(res.consensus).toBe("c");
     expect(res.verdict).toBe("v");
   });
@@ -90,20 +97,19 @@ describe("parseJudgeResponse", () => {
   it("extracts JSON embedded in surrounding prose", () => {
     const raw =
       "好的，这是我的综合：\n{\"consensus\":\"x\",\"divergence\":\"y\",\"blindspots\":\"z\",\"verdict\":\"w\"}\n以上。";
-    const res = parseJudgeResponse(raw);
+    const res = asVerdict(parseJudgeResponse(raw));
     expect(res.consensus).toBe("x");
     expect(res.verdict).toBe("w");
   });
 
   it("trims whitespace from each field", () => {
-    // Use JSON.stringify so embedded whitespace/control chars are validly escaped.
     const raw = JSON.stringify({
       consensus: "  spaced  ",
       divergence: "\td\n",
       blindspots: "b",
       verdict: "v",
     });
-    const res = parseJudgeResponse(raw);
+    const res = asVerdict(parseJudgeResponse(raw));
     expect(res.consensus).toBe("spaced");
     expect(res.divergence).toBe("d");
   });
@@ -111,41 +117,69 @@ describe("parseJudgeResponse", () => {
   it("joins array-valued fields into a string", () => {
     const raw =
       '{"consensus":["a","b"],"divergence":"d","blindspots":"b","verdict":"v"}';
-    const res = parseJudgeResponse(raw);
+    const res = asVerdict(parseJudgeResponse(raw));
     expect(res.consensus).toBe("a；b");
   });
 
   it("falls back gracefully on missing fields (keeps structure complete)", () => {
     const raw = '{"verdict":"only verdict"}';
-    const res = parseJudgeResponse(raw);
+    const res = asVerdict(parseJudgeResponse(raw));
     expect(res.consensus).toMatch(/missing/i);
     expect(res.verdict).toBe("only verdict");
-    // All four keys always present — UI never crashes on render.
     expect(res).toHaveProperty("divergence");
     expect(res).toHaveProperty("blindspots");
   });
 
   it("falls back completely on garbage input (no braces)", () => {
-    const res = parseJudgeResponse("totally not json at all");
+    const res = asVerdict(parseJudgeResponse("totally not json at all"));
     expect(res.consensus).toMatch(/could not parse/i);
-    // Verdict should carry a snippet of the raw text.
     expect(res.verdict).toContain("totally not json at all");
   });
 
   it("falls back on empty input", () => {
-    const res = parseJudgeResponse("");
+    const res = asVerdict(parseJudgeResponse(""));
     expect(res.consensus).toMatch(/could not parse/i);
     expect(res.verdict).toMatch(/no content/i);
   });
 
   it("falls back on malformed JSON inside braces", () => {
-    const res = parseJudgeResponse("{not valid json}");
+    const res = asVerdict(parseJudgeResponse("{not valid json}"));
     expect(res.consensus).toMatch(/could not parse/i);
   });
 
   it("truncates very long fallback verdicts to 1000 chars", () => {
     const long = "x".repeat(5000);
-    const res = parseJudgeResponse(long);
+    const res = asVerdict(parseJudgeResponse(long));
     expect(res.verdict.length).toBeLessThanOrEqual(1000);
+  });
+});
+
+describe("parseJudgeResponse (extract mode)", () => {
+  it("returns the parsed object verbatim under data", () => {
+    const raw = JSON.stringify({ 思维模型: [{ 名称: "均值回归" }], 因果链: [], 交易模型: [] });
+    const res = parseJudgeResponse(raw, "extract");
+    expect(res.kind).toBe("extract");
+    if (res.kind !== "extract") throw new Error("extract");
+    expect(res.data["思维模型"]).toEqual([{ 名称: "均值回归" }]);
+  });
+
+  it("strips fences and surrounding prose in extract mode", () => {
+    const raw = 'Here you go:\n```json\n{"a":1,"b":2}\n```\nDone.';
+    const res = parseJudgeResponse(raw, "extract");
+    if (res.kind !== "extract") throw new Error("extract");
+    expect(res.data).toEqual({ a: 1, b: 2 });
+  });
+
+  it("falls back to {raw: snippet} on unparseable input", () => {
+    const res = parseJudgeResponse("no json here at all", "extract");
+    if (res.kind !== "extract") throw new Error("extract");
+    expect(res.data).toHaveProperty("raw");
+    expect(String(res.data.raw)).toContain("no json here at all");
+  });
+
+  it("falls back on empty input in extract mode", () => {
+    const res = parseJudgeResponse("", "extract");
+    if (res.kind !== "extract") throw new Error("extract");
+    expect(Object.keys(res.data)).toContain("raw");
   });
 });

@@ -11,8 +11,10 @@
  * session's MoASessionConfig (shallow-merged by the hook).
  */
 import { useTranslation } from "react-i18next";
+import { filterByLanguage } from "../services/templateFilter";
 import type {
   AIProvider,
+  ExtractSchemaTemplate,
   JudgePromptTemplate,
   MoASessionConfig,
   MoaMode,
@@ -23,6 +25,7 @@ interface MoAConfigBarProps {
   providers: AIProvider[];
   roleTemplates: RoleTemplate[];
   judgePrompts: JudgePromptTemplate[];
+  extractSchemas: ExtractSchemaTemplate[];
   config: MoASessionConfig;
   /** Patch the active session's config (shallow merge). */
   onChange: (patch: Partial<MoASessionConfig>) => void;
@@ -36,11 +39,13 @@ export function MoAConfigBar({
   providers,
   roleTemplates,
   judgePrompts,
+  extractSchemas,
   config,
   onChange,
   running,
 }: MoAConfigBarProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language.startsWith("zh") ? "zh" : "en";
   const isAdvanced = config.mode === "advanced";
   const isCollision =
     isAdvanced && config.judgeStrategy === "collision";
@@ -170,6 +175,21 @@ export function MoAConfigBar({
             </div>
           )}
 
+          {/* Memory toggle (Stage 1a multi-turn memory) */}
+          <label
+            className="flex items-center gap-1 text-[11px] text-ink-muted"
+            title={t("moaConfigBar.memoryTooltip")}
+          >
+            <input
+              type="checkbox"
+              checked={config.memoryEnabled}
+              disabled={running}
+              onChange={(e) => onChange({ memoryEnabled: e.target.checked })}
+              className="h-3 w-3 cursor-pointer accent-[var(--accent)] disabled:opacity-50"
+            />
+            {t("moaConfigBar.memory")}
+          </label>
+
           <span
             className={
               "ml-auto text-[11px] " +
@@ -234,7 +254,7 @@ export function MoAConfigBar({
                     title={t("moaConfigBar.panelRoleSelect")}
                   >
                     <option value="">{t("moaConfigBar.noRole")}</option>
-                    {roleTemplates.map((r) => (
+                    {filterByLanguage(roleTemplates, lang).map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name}
                       </option>
@@ -308,9 +328,65 @@ export function MoAConfigBar({
                 className={selectCls}
               >
                 <option value="">{t("moaConfigBar.default")}</option>
-                {judgePrompts.map((j) => (
+                {filterByLanguage(judgePrompts, lang).map((j) => (
                   <option key={j.id} value={j.id}>
                     {j.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Output mode (Stage 3): verdict vs extract + schema select */}
+          <div className="flex items-center gap-1.5">
+            <span
+              className="text-[11px] text-ink-muted"
+              title={t("moaConfigBar.outputModeTooltip")}
+            >
+              {t("moaConfigBar.outputMode")}
+            </span>
+            <select
+              value={config.outputMode}
+              disabled={running}
+              onChange={(e) => {
+                const mode = e.target.value as "verdict" | "extract" | "mapreduce";
+                onChange({
+                  outputMode: mode,
+                  // keep schema ref for extract/mapreduce; clear for verdict
+                  extractSchemaId:
+                    mode === "extract" || mode === "mapreduce"
+                      ? config.extractSchemaId
+                      : null,
+                });
+              }}
+              className={selectCls}
+            >
+              <option value="verdict">{t("moaConfigBar.outputModeVerdict")}</option>
+              <option value="extract">{t("moaConfigBar.outputModeExtract")}</option>
+              <option value="mapreduce">{t("moaConfigBar.outputModeMapreduce")}</option>
+            </select>
+          </div>
+
+          {(config.outputMode === "extract" || config.outputMode === "mapreduce") && (
+            <div className="flex items-center gap-1.5">
+              <span
+                className="text-[11px] text-ink-muted"
+                title={t("moaConfigBar.extractSchemaTooltip")}
+              >
+                {t("moaConfigBar.extractSchema")}
+              </span>
+              <select
+                value={config.extractSchemaId ?? ""}
+                disabled={running}
+                onChange={(e) =>
+                  onChange({ extractSchemaId: e.target.value || null })
+                }
+                className={selectCls}
+              >
+                <option value="">{t("moaConfigBar.default")}</option>
+                {filterByLanguage(extractSchemas, lang).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
                   </option>
                 ))}
               </select>
@@ -344,7 +420,7 @@ export function MoAConfigBar({
                       className={selectCls + " !px-1 !py-0.5 !text-[10px]"}
                     >
                       <option value="">{t("moaConfigBar.default")}</option>
-                      {judgePrompts.map((j) => (
+                      {filterByLanguage(judgePrompts, lang).map((j) => (
                         <option key={j.id} value={j.id}>
                           {j.name}
                         </option>

@@ -9,7 +9,8 @@
     "done": "完成",
     "unknownError": "未知错误",
     "newSession": "新会话",
-    "rounds": "轮"
+    "rounds": "轮",
+    "elapsed": "⏱ {{s}}s"
   },
   "app": {
     "title": "Verdex · 多模型裁判综合引擎",
@@ -32,7 +33,17 @@
     "placeholder": "向专家小组提问…  (Ctrl/⌘+Enter 发送)",
     "send": "发送",
     "running": "运行中…",
-    "hint": "Enter 换行 · Ctrl/⌘+Enter 发送"
+    "hint": "Enter 换行 · Ctrl/⌘+Enter 发送",
+    "stop": "停止",
+    "stopping": "停止中…",
+    "attach": "📎",
+    "attachTooltip": "添加 txt/md 文档——其内容会拼接到你的提问前一起发送",
+    "attachmentLabel": "附件: {{name}}",
+    "attachmentChars": "{{chars}} 字符",
+    "attachmentTruncated": "已截断",
+    "attachmentRemove": "移除",
+    "readError": "读取失败: {{message}}",
+    "attachmentsHint": "附件会随本会话的每条消息一起发送"
   },
   "judge": {
     "loading": "裁判正在综合 {{count}} 个专家的回答",
@@ -44,6 +55,7 @@
     "divergence": "⚔️ 观点碰撞",
     "blindspots": "💡 独特盲点",
     "verdict": "⚖️ 最终裁决",
+    "extractHeader": "📋 抽取结果",
     "showRaw": "查看原始 JSON",
     "hideRaw": "隐藏原始 JSON"
   },
@@ -81,12 +93,23 @@
     "judgesCollision": "Judges(对撞,≥2)",
     "judgePrompt": "裁判提示词",
     "default": "(默认)",
-    "collisionPrompts": "各裁判提示词(按顺序对齐):"
+    "collisionPrompts": "各裁判提示词(按顺序对齐):",
+    "outputMode": "输出",
+    "outputModeTooltip": "verdict=四段综合裁决(默认);extract=自定义结构 JSON 抽取",
+    "outputModeVerdict": "裁决",
+    "outputModeExtract": "抽取",
+    "outputModeMapreduce": "Map-Reduce",
+    "mapreduceHint": "文档并行抽取后合并——用于大型多文档语料",
+    "extractSchema": "结构",
+    "extractSchemaTooltip": "为抽取模式选择自定义 JSON 结构。在 设置 → 结构 里管理。",
+    "memory": "记忆",
+    "memoryTooltip": "开启后,每个 Panel/Judge 会带上自己之前几轮的回答作为上下文(多轮记忆)。关闭则每轮独立、无记忆。"
   },
   "settingsModal": {
     "title": "⚙️ 设置",
     "tabProviders": "📦 模型供应商",
     "tabTemplates": "🎭 提示词模板",
+    "tabSchemas": "📋 结构",
     "description": "管理全局 OpenAI 兼容端点。每个模型都可被任意会话选为 Panel 或 Judge。",
     "closeAria": "关闭",
     "emptyState": "暂无模型。点击下方「添加模型」创建第一个供应商。",
@@ -139,7 +162,34 @@
     "judgePromptNamePlaceholder": "默认四段裁决",
     "judgePromptBody": "System Prompt(可用 {PANELS} 作为专家回答插入点)",
     "judgePromptBodyPlaceholder": "你是一位顶级裁判…\n{PANELS}\n输出 JSON…",
-    "deletePromptConfirm": "删除提示词「{{name}}」?所有会话中对它的引用也会被移除。"
+    "deletePromptConfirm": "删除提示词「{{name}}」?所有会话中对它的引用也会被移除。",
+    "schemas": "抽取结构(抽取模式用的自定义 JSON 结构)",
+    "addSchema": "+ 新增结构",
+    "noSchemas": "还没有抽取结构。点「新增结构」创建一个。",
+    "schemaName": "结构名称",
+    "schemaNamePlaceholder": "思维模型库",
+    "schemaBody": "指令(告诉裁判输出什么 JSON;用 {PANELS} 插入专家回答)",
+    "schemaBodyPlaceholder": "输出 JSON 对象,含字段:\n思维模型: [ {名称, 定义, 关键数据, 应用规则} ]\n因果链: [ ... ]\n{PANELS}",
+    "schemaRequiredKeys": "必需顶层键(逗号分隔,用于校验)",
+    "schemaRequiredKeysPlaceholder": "思维模型, 因果链, 交易模型",
+    "deleteSchemaConfirm": "删除结构「{{name}}」?使用它的会话会回退到裁决模式。"
+  },
+  "memory": {
+    "summaryPrefix": "【对话摘要】"
+  },
+  "mapReduce": {
+    "mapHeader": "📄 文档抽取(Map)",
+    "reduceHeader": "📋 合并结果(Reduce)",
+    "docMapping": "抽取中…",
+    "docDone": "✓ 已抽取",
+    "docError": "✗ 失败",
+    "docFields": "{{count}} 个字段",
+    "mapProgress": "{{done}}/{{total}} 完成",
+    "reduceRunning": "合并中…",
+    "reduceWaiting": "等待 Map 完成…",
+    "reduceEmpty": "(无文档抽取结果)",
+    "showRaw": "查看原始 JSON",
+    "hideRaw": "隐藏原始 JSON"
   },
   "sidebar": {
     "brandSubtitle": "MoA 综合引擎",
@@ -166,6 +216,7 @@
     "SESSION_INTERRUPTED": "会话中断",
     "INPUT_INVALID": "输入校验失败",
     "REQUEST_TIMEOUT": "请求超时({{s}}s)",
+    "CANCELLED": "已取消",
     "REQUEST_FAILED": "请求失败: {{message}}",
     "CONNECT_OK": "连接成功",
     "CONNECT_TIMEOUT": "连接超时(20s)"

@@ -377,7 +377,8 @@ function extractContent(text: string, protocol: ProtocolType): string {
  */
 export async function streamChat(
   opts: StreamChatOptions,
-  onDelta: (delta: string) => void
+  onDelta: (delta: string) => void,
+  externalSignal?: AbortSignal
 ): Promise<string> {
   const fetchImpl = await resolveFetch();
   const timeoutMs = opts.timeoutMs ?? 60000;
@@ -386,6 +387,15 @@ export async function streamChat(
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  // If the caller passes an external cancel signal (e.g. user hits Stop),
+  // propagate it to our controller so in-flight requests abort immediately.
+  const onExternalAbort = () => controller.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort();
+    else externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+  }
+  /** True only when the USER cancelled (not a timeout). */
+  const userCancelled = () => Boolean(externalSignal?.aborted);
 
   try {
     return await streamSse(
@@ -396,6 +406,9 @@ export async function streamChat(
       onDelta
     );
   } catch (streamErr) {
+    // User cancellation — propagate as a distinct error so callers can tell
+    // it apart from timeout/network failure.
+    if (userCancelled()) throw new Error(i18n.t("errors.CANCELLED"));
     // If we were aborted by timeout, surface that specifically.
     if (controller.signal.aborted) {
       throw new Error(
@@ -410,6 +423,10 @@ export async function streamChat(
       () => fallbackController.abort(),
       timeoutMs
     );
+    if (externalSignal) {
+      if (externalSignal.aborted) fallbackController.abort();
+      else externalSignal.addEventListener("abort", () => fallbackController.abort(), { once: true });
+    }
     try {
       const res = await fetchImpl(prepared.url, {
         method: "POST",
@@ -428,6 +445,7 @@ export async function streamChat(
       if (content) onDelta(content);
       return content;
     } catch (fallbackErr) {
+      if (userCancelled()) throw new Error(i18n.t("errors.CANCELLED"));
       if (fallbackController.signal.aborted) {
         throw new Error(
         i18n.t("errors.REQUEST_TIMEOUT", { s: Math.round(timeoutMs / 1000) })
@@ -443,6 +461,7 @@ export async function streamChat(
     }
   } finally {
     clearTimeout(timer);
+    if (externalSignal) externalSignal.removeEventListener("abort", onExternalAbort);
   }
 }
 

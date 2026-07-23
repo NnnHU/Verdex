@@ -99,6 +99,30 @@ export interface JudgePromptTemplate {
   systemPrompt: string;
 }
 
+/**
+ * A reusable extract-schema template (Stage 3). In "extract" output mode, the
+ * Judge produces an arbitrary JSON object instead of the four-field verdict.
+ *
+ * Stage 3 uses free-form instruction prompts (Route 1): `systemPrompt` tells
+ * the model what JSON structure to produce, and `requiredKeys` drives a
+ * lightweight validation (top-level keys present). The pair is designed to
+ * upgrade cleanly to Route 2 (formal JSON Schema + ajv): a future `schemaJson`
+ * field can be added without changing this interface's existing fields.
+ *
+ * Stored globally (verdex.extractSchemas) and referenced by id from sessions.
+ */
+export interface ExtractSchemaTemplate {
+  id: string;
+  /** Short label, e.g. "思维模型库". */
+  name: string;
+  /** Instruction text telling the Judge what JSON structure to output. Should
+   *  include the {PANELS} placeholder if it wants panel answers injected. */
+  systemPrompt: string;
+  /** Top-level keys the parsed JSON must contain (lightweight validation).
+   *  Optional — empty/undefined means "any object passes". */
+  requiredKeys?: string[];
+}
+
 /* ------------------------------------------------------------------ *
  * 3. Session-level MoA scheduling configuration
  * ------------------------------------------------------------------ */
@@ -131,6 +155,16 @@ export interface MoASessionConfig {
   judgePromptId: string | null;
   /** Per-judge prompt template ids for collision mode (aligned with judgeIds). */
   collisionJudgePromptIds: string[];
+  /** Whether each Panel/Judge receives its own prior turns as context
+   *  (Stage 1a multi-turn memory). Default true. When false, every run is
+   *  stateless (legacy single-turn behavior). */
+  memoryEnabled: boolean;
+  /** Output mode (Stage 3): "verdict" = four-field裁决 (default/legacy),
+   *  "extract" = custom-schema JSON extraction. */
+  outputMode: "verdict" | "extract" | "mapreduce";
+  /** Extract-schema template id used when outputMode === "extract".
+   *  Ignored in verdict mode. Null = no schema selected. */
+  extractSchemaId: string | null;
 }
 
 /* ------------------------------------------------------------------ *
@@ -141,8 +175,13 @@ export interface MoASessionConfig {
 export interface JudgeSpec {
   /** Provider id of the judge model. */
   providerId: string;
-  /** The judge's system prompt (role-specific or default four-field). */
+  /** The judge's system prompt (role-specific, default four-field, or an
+   *  extract-schema instruction). */
   systemPrompt: string;
+  /** Output mode (Stage 3): "verdict" (default) or "extract". */
+  outputMode?: "verdict" | "extract";
+  /** When outputMode === "extract", the required top-level keys for validation. */
+  requiredKeys?: string[];
 }
 
 /** A request for a full MoA synthesis run. */
@@ -157,30 +196,61 @@ export interface SynthesisRequest {
   /** Judges to run, each with its own system prompt. Length 1 for single,
    *  ≥2 for collision. */
   judges: JudgeSpec[];
+  /** Per-panel conversation history (Stage 1a multi-turn memory). Keyed by
+   *  panel providerId; the engine splices these messages before the current
+   *  user prompt. Absent/empty = no history (back-compat). */
+  panelHistory?: Record<string, ChatMessage[]>;
+  /** Per-judge conversation history, keyed by judge providerId. Same semantics
+   *  as panelHistory but for the judge's own prior verdicts. */
+  judgeHistory?: Record<string, ChatMessage[]>;
   /** Sampling temperature for panels. Defaults to 0.7. */
   temperature?: number;
   /** Max tokens per model call. Defaults to 2048. */
   maxTokens?: number;
   /** Per-call timeout in ms. Defaults to 60000. */
   timeoutMs?: number;
+  /** Request-level output mode (Stage 4). "mapreduce" routes to the Map→Reduce
+   *  branch in runMoaSynthesis (skips Panel/Judge). verdict/extract are per-
+   *  judge (JudgeSpec.outputMode) but mirrored here for the mapreduce path. */
+  outputMode?: "verdict" | "extract" | "mapreduce";
+  /** Attachments to process in mapreduce mode (Stage 4). Each becomes one Map
+   *  call. Verdict/extract modes splice attachments into `prompt` instead. */
+  attachments?: Attachment[];
+  /** External cancel signal (Stop button). When aborted, in-flight streamChat
+   *  calls reject with errors.CANCELLED and the engine skips later phases. */
+  signal?: AbortSignal;
 }
 
 /**
- * The structured output of every judge. The four fields are the stable render
- * contract for the verdict cards. The default judge prompt always enforces
- * them; a custom prompt may omit them, in which case the parser fills
- * placeholders so the UI never crashes.
+ * The structured output of a judge (Stage 3: discriminated union).
+ *
+ * - `kind: "verdict"` — the legacy four-field裁决 (consensus/divergence/
+ *   blindspots/verdict). Rendered by the four verdict cards.
+ * - `kind: "extract"` — an arbitrary JSON object produced per a custom
+ *   ExtractSchemaTemplate. Rendered by the generic JSON card renderer.
+ *
+ * The `kind` field lets the parser, engine, and UI branch type-safely.
  */
-export interface SynthesisResponse {
-  /** 🎯 核心共识 — points every panel agreed on. */
-  consensus: string;
-  /** ⚔️ 观点碰撞 — meaningful disagreements between panels. */
-  divergence: string;
-  /** 💡 独特盲点 — insights only one or few panels raised. */
-  blindspots: string;
-  /** ⚖️ 最终裁决 — the judge's final, actionable verdict. */
-  verdict: string;
-}
+export type JudgeResponse =
+  | {
+      kind: "verdict";
+      /** 🎯 核心共识 — points every panel agreed on. */
+      consensus: string;
+      /** ⚔️ 观点碰撞 — meaningful disagreements between panels. */
+      divergence: string;
+      /** 💡 独特盲点 — insights only one or few panels raised. */
+      blindspots: string;
+      /** ⚖️ 最终裁决 — the judge's final, actionable verdict. */
+      verdict: string;
+    }
+  | {
+      kind: "extract";
+      /** The parsed arbitrary JSON object (validated against requiredKeys). */
+      data: Record<string, unknown>;
+    };
+
+/** Back-compat alias: existing code references SynthesisResponse. */
+export type SynthesisResponse = JudgeResponse;
 
 /* ------------------------------------------------------------------ *
  * 5. Runtime / UI state (engine → hook → components)
@@ -233,6 +303,19 @@ export interface JudgeState {
   error?: string;
 }
 
+/** Live state of one document's Map step in a mapreduce turn (Stage 4). */
+export interface MapOutputState {
+  /** Id of the Attachment this Map call processed. */
+  attachmentId: string;
+  /** Snapshot of the attachment filename (survives attachment removal). */
+  name: string;
+  status: "pending" | "mapping" | "done" | "error";
+  /** The parsed JSON object extracted from this document (status==="done"). */
+  data?: Record<string, unknown>;
+  /** Populated when status === "error". */
+  error?: string;
+}
+
 /**
  * A single conversational turn = one user prompt + its parallel panels + the
  * judges' structured verdict(s). This is the atomic "message" unit persisted
@@ -246,11 +329,38 @@ export interface Turn {
   panels: PanelState[];
   /** One entry per judge that ran (length 1 unless collision mode). */
   judges: JudgeState[];
+  /** Per-document Map outputs (Stage 4 mapreduce). Present only on mapreduce turns. */
+  mapOutputs?: MapOutputState[];
+  /** Reduce-merged final result (Stage 4 mapreduce). Present only on mapreduce turns. */
+  mergedResult?: SynthesisResponse | null;
 }
 
 /* ------------------------------------------------------------------ *
  * 6. Chat session
  * ------------------------------------------------------------------ */
+
+/**
+ * A user-loaded document attached to a session (Stage 2 document input).
+ * Stage 2 uses it by splicing its text into the prompt; Stage 4 Map-Reduce
+ * will read directly from session.attachments as the corpus to chunk.
+ *
+ * First version supports plaintext only (txt/md/markdown). PDF/Word needs a
+ * Rust-side parser and is deferred.
+ */
+export interface Attachment {
+  /** Unique id. Prefer crypto.randomUUID(). */
+  id: string;
+  /** Original filename, e.g. "格兰瑟姆-看对了一场史诗级暴跌A.txt". */
+  name: string;
+  /** Full text content (UTF-8). May be truncated if it exceeded the cap. */
+  text: string;
+  /** text.length — shown in the UI for quota awareness. */
+  chars: number;
+  /** Source kind, e.g. "txt" / "md" / "markdown". */
+  source: string;
+  /** True when the original file exceeded MAX_ATTACHMENT_CHARS and was cut. */
+  truncated: boolean;
+}
 
 /**
  * A chat session = a named conversation. Each session carries its own MoA
@@ -267,6 +377,15 @@ export interface ChatSession {
   config: MoASessionConfig;
   /** Ordered list of turns (newest last). */
   messages: Turn[];
+  /** User-loaded documents (Stage 2). Optional — absent on older sessions. */
+  attachments?: Attachment[];
+  /** Stage 1b rolling summary: early conversation compressed into a structured
+   *  summary (key facts / user prefs / todos / context). Shared across all
+   *  providers. Absent until the conversation grows past the recent window. */
+  summary?: string;
+  /** Index in messages[] up to which `summary` covers (exclusive). Avoids
+   *  re-summarizing already-processed turns. Undefined = nothing summarized. */
+  summaryUpTo?: number;
 }
 
 /* ------------------------------------------------------------------ *
@@ -297,4 +416,18 @@ export interface MoaCallbacks {
   onJudgeDelta?: (judgeId: string, delta: string) => void;
   onJudgeDone?: (judgeId: string, response: SynthesisResponse, raw: string) => void;
   onJudgeError?: (judgeId: string, message: string) => void;
+  /** Stage 4 mapreduce: a document's Map extraction started. */
+  onMapDocStart?: (attachmentId: string, name: string) => void;
+  /** Stage 4 mapreduce: a document's Map extraction succeeded with parsed JSON. */
+  onMapDocDone?: (attachmentId: string, data: Record<string, unknown>) => void;
+  /** Stage 4 mapreduce: a document's Map extraction failed. */
+  onMapDocError?: (attachmentId: string, message: string) => void;
+  /** Stage 4 mapreduce: Reduce merge started. */
+  onReduceStart?: () => void;
+  /** Stage 4 mapreduce: Reduce merge streaming delta. */
+  onReduceDelta?: (delta: string) => void;
+  /** Stage 4 mapreduce: Reduce merge done with final structured result. */
+  onReduceDone?: (response: SynthesisResponse, raw: string) => void;
+  /** Stage 4 mapreduce: Reduce merge failed. */
+  onReduceError?: (message: string) => void;
 }

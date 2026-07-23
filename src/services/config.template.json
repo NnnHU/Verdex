@@ -120,6 +120,32 @@
       "systemPrompt": "你是一位多视角综合者。你的价值在于整合,而非各打五十大板。\n审阅各专家回答,识别哪些分歧是表面的(可调和)、哪些是实质的(不可调和)。\n对实质分歧,不要强行折中——保留张力本身就是信息。\n\n【专家回答】\n{PANELS}\n\n【输出要求】只输出一个 JSON,含四字段:\n  \"consensus\": 各视角真正收敛的结论;\n  \"divergence\": 不可调和的实质分歧,说明各自成立的前提;\n  \"blindspots\": 单一视角看不到、但综合后才显现的洞察;\n  \"verdict\": 你的综合裁决;若无法收敛,明确给出「在X前提下倾向A,在Y前提下倾向B」。\n格式: {\"consensus\":\"...\",\"divergence\":\"...\",\"blindspots\":\"...\",\"verdict\":\"...\"}"
     }
   ],
+  "extractSchemas": [
+    {
+      "id": "extract-verdict-en",
+      "name": "Four-field verdict (extract)",
+      "systemPrompt": "You are a Mixture-of-Agents Judge in extract mode. Synthesize the expert answers below into a structured JSON object.\n\n【Expert answers】\n{PANELS}\n\n【Output requirements】Output ONLY a JSON object (no markdown fences, no prose) with exactly these fields:\n  \"consensus\": core points all experts agree on;\n  \"divergence\": meaningful disagreements;\n  \"blindspots\": overlooked insights;\n  \"verdict\": final actionable verdict.\nThis template mirrors verdict mode via the extract path, for demonstration.",
+      "requiredKeys": ["consensus", "divergence", "blindspots", "verdict"]
+    },
+    {
+      "id": "extract-mental-models-en",
+      "name": "Mental model library",
+      "systemPrompt": "You are an extraction engine. Read the source material (and any expert answers below) and extract a structured library of thinking models, causal chains, and trading/decision models.\n\n【Expert answers】\n{PANELS}\n\n【Output requirements】Output ONLY a JSON object (no markdown fences, no prose) with these top-level keys:\n  \"思维模型\": an array of objects, each {\"名称\":..., \"定义\":..., \"关键数据\":{...}, \"应用规则\":...};\n  \"因果链\": an array of objects, each {\"名称\":..., \"链条\":..., \"关键节点\":{...}};\n  \"交易模型\": an array of objects, each {\"名称\":..., \"操作\":..., \"案例\":...}.\nOmit a key only if the source contains nothing relevant; otherwise keep all three.",
+      "requiredKeys": ["思维模型", "因果链", "交易模型"]
+    },
+    {
+      "id": "extract-verdict-zh",
+      "name": "四段裁决(抽取)",
+      "systemPrompt": "你是混合智能裁判(抽取模式)。把下方专家回答综合成一个结构化 JSON 对象。\n\n【专家回答】\n{PANELS}\n\n【输出要求】只输出 JSON 对象(不要 markdown 围栏、不要解释),含且仅含这些字段:\n  \"consensus\": 各专家达成共识的核心;\n  \"divergence\": 有意义的分歧;\n  \"blindspots\": 被忽略的盲点;\n  \"verdict\": 最终可执行的裁决。\n此模板通过抽取路径复现裁决模式,作示范。",
+      "requiredKeys": ["consensus", "divergence", "blindspots", "verdict"]
+    },
+    {
+      "id": "extract-mental-models-zh",
+      "name": "思维模型库",
+      "systemPrompt": "你是抽取引擎。阅读源材料(以及下方专家回答),抽取思维模型、因果链、交易/决策模型的结构化库。\n\n【专家回答】\n{PANELS}\n\n【输出要求】只输出 JSON 对象(不要 markdown 围栏、不要解释),含这些顶层键:\n  \"思维模型\": 对象数组,每项 {\"名称\":..., \"定义\":..., \"关键数据\":{...}, \"应用规则\":...};\n  \"因果链\": 对象数组,每项 {\"名称\":..., \"链条\":..., \"关键节点\":{...}};\n  \"交易模型\": 对象数组,每项 {\"名称\":..., \"操作\":..., \"案例\":...}。\n仅当源材料完全不涉及时可省略某键;否则三个都保留。",
+      "requiredKeys": ["思维模型", "因果链", "交易模型"]
+    }
+  ],
   "sessions": [
     {
       "sessionId": "welcome",
@@ -132,7 +158,10 @@
         "judgeIds": ["claude-3.5-sonnet"],
         "judgeStrategy": "single",
         "judgePromptId": "judge-default-en",
-        "collisionJudgePromptIds": []
+        "collisionJudgePromptIds": [],
+        "memoryEnabled": true,
+        "outputMode": "verdict",
+        "extractSchemaId": null
       },
       "messages": []
     }

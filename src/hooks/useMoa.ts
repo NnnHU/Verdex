@@ -30,11 +30,19 @@ import {
   loadConfig,
   saveConfig,
 } from "../services/configStore";
+import { getMemoryConfig } from "../services/envConfig";
+import { buildHistory } from "../services/memoryBuilder";
+import { shouldMapReduce } from "../services/mapreduceStrategy";
+import { summarizeHistory } from "../services/summarizer";
 import type {
   AIProvider,
+  Attachment,
+  ChatMessage,
   ChatSession,
+  ExtractSchemaTemplate,
   JudgePromptTemplate,
   JudgeState,
+  MapOutputState,
   MoASessionConfig,
   PanelState,
   RoleTemplate,
@@ -60,6 +68,9 @@ function makeDefaultConfig(providers: AIProvider[]): MoASessionConfig {
     judgeStrategy: "single",
     judgePromptId: DEFAULT_JUDGE_PROMPTS[0]?.id ?? null,
     collisionJudgePromptIds: [],
+    memoryEnabled: true,
+    outputMode: "verdict",
+    extractSchemaId: null,
   };
 }
 
@@ -109,6 +120,9 @@ function normalizeSessionConfig(
     judgeStrategy: cfg.judgeStrategy ?? "single",
     judgePromptId: cfg.judgePromptId ?? DEFAULT_JUDGE_PROMPTS[0]?.id ?? null,
     collisionJudgePromptIds: cfg.collisionJudgePromptIds ?? [],
+    memoryEnabled: cfg.memoryEnabled ?? true,
+    outputMode: cfg.outputMode === "extract" ? "extract" : "verdict",
+    extractSchemaId: cfg.extractSchemaId ?? null,
   };
 }
 
@@ -181,6 +195,12 @@ export interface UseMoa {
   updateJudgePrompt: (id: string, patch: Partial<JudgePromptTemplate>) => void;
   removeJudgePrompt: (id: string) => void;
 
+  // Extract-schema template state + CRUD (Stage 3)
+  extractSchemas: ExtractSchemaTemplate[];
+  addExtractSchema: (partial?: Partial<ExtractSchemaTemplate>) => void;
+  updateExtractSchema: (id: string, patch: Partial<ExtractSchemaTemplate>) => void;
+  removeExtractSchema: (id: string) => void;
+
   // Session state + CRUD
   sessions: ChatSession[];
   currentSessionId: string | null;
@@ -190,6 +210,10 @@ export interface UseMoa {
   renameSession: (id: string, title: string) => void;
   removeSession: (id: string) => void;
   updateSessionConfig: (id: string, config: Partial<MoASessionConfig>) => void;
+
+  // Attachments (Stage 2 document input)
+  addAttachments: (sessionId: string, attachments: Attachment[]) => void;
+  removeAttachment: (sessionId: string, attachmentId: string) => void;
 
   // Sidebar
   sidebarOpen: boolean;
@@ -210,7 +234,11 @@ export interface UseMoa {
   setTheme: (t: "dark" | "light" | "soft") => void;
   lastError: string | null;
   clearError: () => void;
+  /** Surface a message to the user via the global error banner. */
+  setError: (msg: string | null) => void;
   send: (prompt: string) => Promise<void>;
+  /** Abort the in-flight synthesis (Stop button). No-op if not running. */
+  stop: () => void;
 }
 
 function genId(): string {
@@ -240,6 +268,9 @@ export function useMoa(): UseMoa {
   const [judgePrompts, setJudgePrompts] = useState<JudgePromptTemplate[]>(
     () => getTemplateConfig().judgePrompts
   );
+  const [extractSchemas, setExtractSchemas] = useState<ExtractSchemaTemplate[]>(
+    () => getTemplateConfig().extractSchemas
+  );
   const [sessions, setSessions] = useState<ChatSession[]>(
     () => getTemplateConfig().sessions
   );
@@ -259,6 +290,8 @@ export function useMoa(): UseMoa {
   const judgeBuffers = useRef<Record<string, string>>({});
   const flushTimer = useRef<number | null>(null);
   const saveTimer = useRef<number | null>(null);
+  /** AbortController for the in-flight synthesis (Stop button). */
+  const abortRef = useRef<AbortController | null>(null);
 
   /* ----------------------- load on mount ----------------------------- */
 
@@ -271,6 +304,7 @@ export function useMoa(): UseMoa {
       setProviders(finalized.providers);
       setRoleTemplates(finalized.roleTemplates);
       setJudgePrompts(finalized.judgePrompts);
+      setExtractSchemas(finalized.extractSchemas);
       setSessions(finalized.sessions);
       setCurrentSessionId(finalized.currentSessionId);
       // Apply persisted language to i18next + local state.
@@ -303,6 +337,7 @@ export function useMoa(): UseMoa {
         providers,
         roleTemplates,
         judgePrompts,
+        extractSchemas,
         sessions: sessions.map((s) => ({
           ...s,
           messages: s.messages.map((t) => ({
@@ -328,6 +363,7 @@ export function useMoa(): UseMoa {
     providers,
     roleTemplates,
     judgePrompts,
+    extractSchemas,
     sessions,
     currentSessionId,
     language,
@@ -483,6 +519,49 @@ export function useMoa(): UseMoa {
     );
   }, []);
 
+  /* --- Extract-schema CRUD (Stage 3) --- */
+
+  const addExtractSchema = useCallback(
+    (partial?: Partial<ExtractSchemaTemplate>) => {
+      setExtractSchemas((prev) => [
+        ...prev,
+        {
+          id: genId(),
+          name:
+            partial?.name ??
+            (i18n.language === "zh" ? "新抽取模板" : "New extract schema"),
+          systemPrompt: partial?.systemPrompt ?? "",
+          requiredKeys: partial?.requiredKeys ?? [],
+        },
+      ]);
+    },
+    []
+  );
+
+  const updateExtractSchema = useCallback(
+    (id: string, patch: Partial<ExtractSchemaTemplate>) => {
+      setExtractSchemas((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, ...patch } : s))
+      );
+    },
+    []
+  );
+
+  /** Remove an extract schema AND null its session references. */
+  const removeExtractSchema = useCallback((id: string) => {
+    setExtractSchemas((prev) => prev.filter((s) => s.id !== id));
+    setSessions((prev) =>
+      prev.map((s) => ({
+        ...s,
+        config: {
+          ...s.config,
+          extractSchemaId:
+            s.config.extractSchemaId === id ? null : s.config.extractSchemaId,
+        },
+      }))
+    );
+  }, []);
+
   /* ----------------------- session CRUD ------------------------------ */
 
   const newSession = useCallback(() => {
@@ -524,6 +603,43 @@ export function useMoa(): UseMoa {
             ? { ...s, config: { ...s.config, ...config } }
             : s
         )
+      );
+    },
+    []
+  );
+
+  /* --- Attachment CRUD (Stage 2 document input) ---
+   * Attachments live on the session. send() splices their text into the prompt
+   * (Stage 2 usage); Stage 4 Map-Reduce will read them directly as the corpus. */
+
+  /** Append attachments to a session (dedup by name to avoid double-loading). */
+  const addAttachments = useCallback(
+    (sessionId: string, additions: Attachment[]) => {
+      if (additions.length === 0) return;
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.sessionId !== sessionId) return s;
+          const existing = s.attachments ?? [];
+          const existingNames = new Set(existing.map((a) => a.name));
+          const fresh = additions.filter((a) => !existingNames.has(a.name));
+          return { ...s, attachments: [...existing, ...fresh] };
+        })
+      );
+    },
+    []
+  );
+
+  /** Remove one attachment by id. */
+  const removeAttachment = useCallback(
+    (sessionId: string, attachmentId: string) => {
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.sessionId !== sessionId) return s;
+          const next = (s.attachments ?? []).filter(
+            (a) => a.id !== attachmentId
+          );
+          return { ...s, attachments: next };
+        })
       );
     },
     []
@@ -581,7 +697,51 @@ export function useMoa(): UseMoa {
       if (!session) return;
 
       const { config } = session;
-      if (config.panelIds.length === 0 || config.judgeIds.length === 0) return;
+      const memCfg = getMemoryConfig();
+      // mapreduce mode needs only a Judge (the model used for Map/Reduce calls);
+      // Panel selection is irrelevant. verdict/extract need both Panel and Judge.
+      if (config.outputMode === "mapreduce") {
+        if (config.judgeIds.length === 0) return;
+      } else if (config.panelIds.length === 0 || config.judgeIds.length === 0) {
+        return;
+      }
+
+      // --- Build the effective prompt (Stage 2: splice attachments) -------
+      // Attachments are prepended to the user's prompt each turn. We keep
+      // `trimmed` as the user's literal input (stored on the turn, used for the
+      // title) and only the *effective* prompt sent to the model carries the
+      // document text. This keeps session.messages compact; the attachment
+      // corpus already lives on session.attachments.
+      const atts = session.attachments ?? [];
+
+      // Stage 4: decide whether to run Map-Reduce. In mapreduce output mode we
+      // ask the strategy; otherwise never (verdict/extract splice attachments
+      // into the prompt as before).
+      const mrDecision =
+        config.outputMode === "mapreduce"
+          ? shouldMapReduce(
+              atts,
+              memCfg.defaultMaxContextChars,
+              memCfg.mapreduceTriggerRatio,
+              memCfg.mapreduceForce
+            )
+          : null;
+      const useMapReduce = mrDecision?.enabled ?? false;
+
+      const attachmentBlock =
+        atts.length > 0 && !useMapReduce
+          ? atts
+              .map(
+                (a) =>
+                  `【${i18n.t("chatInput.attachmentLabel", { name: a.name })}】\n${a.text}`
+              )
+              .join("\n\n")
+          : "";
+      // In mapreduce mode, the prompt carries only the user question; the
+      // corpus goes through request.attachments for per-document Map calls.
+      const effectivePrompt = attachmentBlock
+        ? `${attachmentBlock}\n\n${trimmed}`
+        : trimmed;
 
       // Resolve panel providers + snapshot their role names.
       const panelProviders = providers.filter((p) =>
@@ -618,7 +778,7 @@ export function useMoa(): UseMoa {
         ? Math.floor(minContext * 0.8)
         : undefined;
       const limitCheck = checkInputLimits(
-        trimmed,
+        effectivePrompt,
         history,
         promptLimit,
         contextLimit
@@ -667,10 +827,30 @@ export function useMoa(): UseMoa {
         return defaultPrompt ?? "";
       };
 
-      const requestJudges = judgeProviders.map((jp, idx) => ({
-        providerId: jp.id,
-        systemPrompt: resolveJudgePrompt(idx),
-      }));
+      // Stage 3: in extract mode, override each judge's prompt with the selected
+      // schema template and tag the spec with outputMode + requiredKeys so the
+      // engine validates and re-prompts on failure. verdict mode = legacy.
+      const extractSchema =
+        (config.outputMode === "extract" || config.outputMode === "mapreduce") &&
+        config.extractSchemaId
+          ? extractSchemas.find((s) => s.id === config.extractSchemaId)
+          : undefined;
+
+      const requestJudges = judgeProviders.map((jp, idx) => {
+        if (extractSchema) {
+          return {
+            providerId: jp.id,
+            systemPrompt: extractSchema.systemPrompt,
+            outputMode: "extract" as const,
+            requiredKeys: extractSchema.requiredKeys,
+          };
+        }
+        return {
+          providerId: jp.id,
+          systemPrompt: resolveJudgePrompt(idx),
+          outputMode: "verdict" as const,
+        };
+      });
 
       // Reset buffers for this run.
       panelBuffers.current = {};
@@ -697,6 +877,15 @@ export function useMoa(): UseMoa {
           raw: "",
           response: null,
         })),
+        // Stage 4 mapreduce slots (only populated when useMapReduce).
+        mapOutputs: useMapReduce
+          ? atts.map<MapOutputState>((a) => ({
+              attachmentId: a.id,
+              name: a.name,
+              status: "pending",
+            }))
+          : undefined,
+        mergedResult: useMapReduce ? null : undefined,
       };
 
       setSessions((prev) =>
@@ -711,6 +900,8 @@ export function useMoa(): UseMoa {
         })
       );
       setRunning(true);
+      abortRef.current = new AbortController();
+      const signal = abortRef.current.signal;
 
       // --- Local mutators scoped to this (session, turn) ----------------
       const setPanel = (providerId: string, patch: Partial<PanelState>) => {
@@ -759,11 +950,169 @@ export function useMoa(): UseMoa {
         );
       };
 
+      // Stage 4 mapreduce: patch one document's Map output state on the turn.
+      const setMapOutput = (attachmentId: string, patch: Partial<MapOutputState>) => {
+        setSessions((prev) =>
+          prev.map((s) =>
+            s.sessionId !== sessionId
+              ? s
+              : {
+                  ...s,
+                  messages: s.messages.map((t) =>
+                    t.id !== turnId
+                      ? t
+                      : {
+                          ...t,
+                          mapOutputs: (t.mapOutputs ?? []).map((m) =>
+                            m.attachmentId === attachmentId ? { ...m, ...patch } : m
+                          ),
+                        }
+                  ),
+                }
+          )
+        );
+      };
+      // Stage 4 mapreduce: patch the Reduce merged result on the turn.
+      const setMerged = (patch: Partial<Pick<Turn, "mergedResult">>) => {
+        setSessions((prev) =>
+          prev.map((s) =>
+            s.sessionId !== sessionId
+              ? s
+              : {
+                  ...s,
+                  messages: s.messages.map((t) =>
+                    t.id !== turnId ? t : { ...t, ...patch }
+                  ),
+                }
+          )
+        );
+      };
+
+      // --- Build per-provider history (Stage 1a multi-turn memory) --------
+      // Each Panel/Judge sees ONLY its own prior turns. Reconstructed from
+      // session.messages, sliding-windowed to recent N turns. The engine does
+      // the ratio-based trim; here we just assemble the recent-N window.
+      let panelHistory: Record<string, ChatMessage[]> | undefined;
+      let judgeHistory: Record<string, ChatMessage[]> | undefined;
+      if (config.memoryEnabled && session.messages.length > 0) {
+        panelHistory = {};
+        for (const p of panelProviders) {
+          const h = buildHistory(
+            session,
+            p.id,
+            false,
+            memCfg.recentTurns
+          );
+          if (h.length > 0) panelHistory[p.id] = h;
+        }
+        judgeHistory = {};
+        for (const jp of judgeProviders) {
+          const h = buildHistory(
+            session,
+            jp.id,
+            true,
+            memCfg.recentTurns
+          );
+          if (h.length > 0) judgeHistory[jp.id] = h;
+        }
+      }
+
+      // --- Stage 1b: hierarchical summary memory --------------------------
+      // When the conversation extends well past the recent window, compress the
+      // early turns into a structured summary (con.txt four categories) and
+      // inject it as a leading system message before each provider's recent
+      // history. This replaces 1a's pure-drop behavior with summary-then-keep.
+      let sessionSummary = session.summary;
+      if (
+        config.memoryEnabled &&
+        config.outputMode !== "mapreduce" && // mapreduce has its own corpus; skip
+        session.messages.length > memCfg.recentTurns
+      ) {
+        const summaryUpTo = session.summaryUpTo ?? 0;
+        const unsummarizedCount = session.messages.length - memCfg.recentTurns - summaryUpTo;
+        // Re-summarize only when enough new turns accumulated beyond the window.
+        const needFreshSummary =
+          !sessionSummary || unsummarizedCount >= memCfg.summaryInterval;
+        if (needFreshSummary) {
+          // Pick the summarization model: .env SUMMARY_MODEL, else first judge provider.
+          const summaryProvider =
+            (memCfg.summaryModel &&
+              providers.find(
+                (p) => p.modelString === memCfg.summaryModel
+              )) ||
+            judgeProviders[0] ||
+            panelProviders[0];
+          if (summaryProvider) {
+            const earlyTurns = session.messages.slice(
+              summaryUpTo,
+              session.messages.length - memCfg.recentTurns
+            );
+            if (earlyTurns.length > 0) {
+              const newSummary = await summarizeHistory(
+                earlyTurns,
+                sessionSummary,
+                summaryProvider,
+                memCfg.requestTimeoutMs
+              );
+              if (newSummary) {
+                sessionSummary = newSummary;
+                const newUpTo = session.messages.length - memCfg.recentTurns;
+                // Persist onto the session so it survives across turns.
+                setSessions((prev) =>
+                  prev.map((s) =>
+                    s.sessionId !== sessionId
+                      ? s
+                      : { ...s, summary: newSummary, summaryUpTo: newUpTo }
+                  )
+                );
+              }
+            }
+          }
+        }
+        // Inject the summary as a leading system message for every provider.
+        if (sessionSummary && panelHistory) {
+          const summaryMsg: ChatMessage = {
+            role: "system",
+            content: `${i18n.t("memory.summaryPrefix")}\n${sessionSummary}`,
+          };
+          for (const id of Object.keys(panelHistory)) {
+            panelHistory[id] = [summaryMsg, ...panelHistory[id]];
+          }
+        }
+        if (sessionSummary && judgeHistory) {
+          const summaryMsg: ChatMessage = {
+            role: "system",
+            content: `${i18n.t("memory.summaryPrefix")}\n${sessionSummary}`,
+          };
+          for (const id of Object.keys(judgeHistory)) {
+            judgeHistory[id] = [summaryMsg, ...judgeHistory[id]];
+          }
+        }
+      }
+
+      // Determine the effective request output mode:
+      // - mapreduce mode + triggered → "mapreduce" (per-doc Map→Reduce)
+      // - mapreduce mode + NOT triggered (auto-degraded) → "extract" (single-pass
+      //   with the schema; attachments already spliced into effectivePrompt above)
+      // - verdict/extract → as configured
+      const effectiveOutputMode: "verdict" | "extract" | "mapreduce" =
+        useMapReduce
+          ? "mapreduce"
+          : config.outputMode === "mapreduce"
+            ? "extract" // degraded mapreduce → single-pass extract with schema
+            : config.outputMode;
+
       const request: SynthesisRequest = {
-        prompt: trimmed,
+        prompt: effectivePrompt,
         panelIds: config.panelIds,
         panelRoles,
         judges: requestJudges,
+        panelHistory,
+        judgeHistory,
+        timeoutMs: memCfg.requestTimeoutMs,
+        outputMode: effectiveOutputMode,
+        attachments: useMapReduce ? atts : undefined,
+        signal,
       };
 
       try {
@@ -828,6 +1177,28 @@ export function useMoa(): UseMoa {
           onJudgeError: (jid, message) => {
             setJudge(jid, { status: "error", error: message });
           },
+          // Stage 4 mapreduce callbacks.
+          onMapDocStart: (attachmentId, _name) => {
+            setMapOutput(attachmentId, { status: "mapping" });
+          },
+          onMapDocDone: (attachmentId, data) => {
+            setMapOutput(attachmentId, { status: "done", data });
+          },
+          onMapDocError: (attachmentId, message) => {
+            setMapOutput(attachmentId, { status: "error", error: message });
+          },
+          onReduceStart: () => {
+            setMerged({ mergedResult: null });
+          },
+          onReduceDelta: (_delta) => {
+            // Reduce streaming not buffered for first version; UI shows on done.
+          },
+          onReduceDone: (response, _raw) => {
+            setMerged({ mergedResult: response });
+          },
+          onReduceError: (message) => {
+            setLastError(message);
+          },
         });
       } finally {
         // Safety: commit any buffered tail text before yielding.
@@ -864,6 +1235,7 @@ export function useMoa(): UseMoa {
           );
         }
         setRunning(false);
+        abortRef.current = null;
       }
     },
     [
@@ -875,6 +1247,16 @@ export function useMoa(): UseMoa {
       scheduleFlush,
     ]
   );
+
+  /** Abort the in-flight synthesis (Stop button). The engine's streamChat
+   *  calls reject with errors.CANCELLED; the send() finally block cleans up. */
+  const stop = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    setRunning(false);
+  }, []);
 
   return {
     providers,
@@ -889,6 +1271,10 @@ export function useMoa(): UseMoa {
     addJudgePrompt,
     updateJudgePrompt,
     removeJudgePrompt,
+    extractSchemas,
+    addExtractSchema,
+    updateExtractSchema,
+    removeExtractSchema,
     sessions,
     currentSessionId,
     currentSession,
@@ -897,6 +1283,8 @@ export function useMoa(): UseMoa {
     renameSession,
     removeSession,
     updateSessionConfig,
+    addAttachments,
+    removeAttachment,
     sidebarOpen,
     toggleSidebar: () => setSidebarOpen((v) => !v),
     running,
@@ -907,6 +1295,8 @@ export function useMoa(): UseMoa {
     setTheme,
     lastError,
     clearError: () => setLastError(null),
+    setError: (msg: string | null) => setLastError(msg),
     send,
+    stop,
   };
 }

@@ -13,6 +13,9 @@ src-tauri/gen/
 *.local
 config.json
 verdex-debug.txt
+# Local reference/scratch files (not part of the project)
+env.txt
+con.txt
 
 # Environment variables
 .env

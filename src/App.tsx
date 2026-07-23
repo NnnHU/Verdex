@@ -18,7 +18,7 @@
  * the active session's panels/judge. The engine resolves providers from the
  * global list at run time.
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMoa } from "./hooks/useMoa";
 import { Sidebar } from "./components/Sidebar";
@@ -28,7 +28,10 @@ import { HelpModal } from "./components/HelpModal";
 import { UserMessage } from "./components/UserMessage";
 import { PanelCollapseGroup } from "./components/PanelCollapseGroup";
 import { JudgeMessage } from "./components/JudgeMessage";
+import { MapReduceMessage } from "./components/MapReduceMessage";
+import { TurnTimer } from "./components/TurnTimer";
 import { ChatInput } from "./components/ChatInput";
+import { readTextFiles } from "./services/fileReader";
 
 const SAMPLE_PROMPT_KEYS = [
   "emptyState.samplePrompt1",
@@ -92,6 +95,29 @@ export default function App() {
 
   const session = moa.currentSession;
   const messages = session?.messages ?? [];
+
+  // Stage 2: read user-picked files and attach them to the current session.
+  // Reads run through fileReader (txt/md only); per-file errors are surfaced
+  // via lastError so the user sees why a file was rejected.
+  const handleAddFiles = useCallback(
+    async (files: File[]) => {
+      if (!session || files.length === 0) return;
+      const { ok, errors } = await readTextFiles(files);
+      if (ok.length > 0) moa.addAttachments(session.sessionId, ok);
+      if (errors.length > 0) {
+        moa.setError(errors.join("\n"));
+      }
+    },
+    [session, moa]
+  );
+
+  const handleRemoveAttachment = useCallback(
+    (attachmentId: string) => {
+      if (!session) return;
+      moa.removeAttachment(session.sessionId, attachmentId);
+    },
+    [session, moa]
+  );
 
   // Auto-scroll to the newest content whenever messages change or stream ticks.
   // NOTE: this useEffect MUST stay before any early return — React requires
@@ -183,6 +209,10 @@ export default function App() {
           onAddJudgePrompt={() => moa.addJudgePrompt()}
           onUpdateJudgePrompt={moa.updateJudgePrompt}
           onRemoveJudgePrompt={moa.removeJudgePrompt}
+          extractSchemas={moa.extractSchemas}
+          onAddSchema={() => moa.addExtractSchema()}
+          onUpdateSchema={moa.updateExtractSchema}
+          onRemoveSchema={moa.removeExtractSchema}
         />
         <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
       </div>
@@ -233,6 +263,7 @@ export default function App() {
           providers={moa.providers}
           roleTemplates={moa.roleTemplates}
           judgePrompts={moa.judgePrompts}
+          extractSchemas={moa.extractSchemas}
           config={session.config}
           running={moa.running}
           onChange={(patch) =>
@@ -265,11 +296,20 @@ export default function App() {
             />
           ) : (
             <div className="mx-auto max-w-4xl py-4">
-              {messages.map((turn) => (
+              {messages.map((turn, idx) => {
+                const isLiveTurn = moa.running && idx === messages.length - 1;
+                return (
                 <div key={turn.id} className="mb-2">
                   <UserMessage prompt={turn.prompt} />
+                  <TurnTimer running={isLiveTurn} fromTs={turn.createdAt} />
                   <PanelCollapseGroup panels={turn.panels} />
-                  {turn.judges.map((j) => (
+                  {turn.mapOutputs ? (
+                    <MapReduceMessage
+                      mapOutputs={turn.mapOutputs}
+                      mergedResult={turn.mergedResult ?? null}
+                    />
+                  ) : (
+                    turn.judges.map((j) => (
                     <JudgeMessage
                       key={j.judgeId}
                       status={j.status}
@@ -282,15 +322,24 @@ export default function App() {
                         turn.judges.length > 1 ? j.label : undefined
                       }
                     />
-                  ))}
+                  ))
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
         {/* Composer */}
-        <ChatInput onSend={moa.send} running={moa.running} />
+        <ChatInput
+          onSend={moa.send}
+          running={moa.running}
+          onStop={moa.stop}
+          attachments={session?.attachments ?? []}
+          onAddFiles={handleAddFiles}
+          onRemoveAttachment={handleRemoveAttachment}
+        />
       </div>
 
       {/* Global settings (unified: providers + templates tabs) */}
@@ -309,6 +358,10 @@ export default function App() {
         onAddJudgePrompt={() => moa.addJudgePrompt()}
         onUpdateJudgePrompt={moa.updateJudgePrompt}
         onRemoveJudgePrompt={moa.removeJudgePrompt}
+        extractSchemas={moa.extractSchemas}
+        onAddSchema={() => moa.addExtractSchema()}
+        onUpdateSchema={moa.updateExtractSchema}
+        onRemoveSchema={moa.removeExtractSchema}
       />
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>

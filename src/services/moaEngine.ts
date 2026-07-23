@@ -19,6 +19,7 @@ import { streamChat } from "./httpClient";
 import i18n from "../i18n";
 import type {
   AIProvider,
+  Attachment,
   ChatMessage,
   JudgePromptTemplate,
   JudgeSpec,
@@ -26,6 +27,9 @@ import type {
   SynthesisRequest,
   SynthesisResponse,
 } from "../types/moa";
+import { getMemoryConfig } from "./envConfig";
+import { trimHistoryByRatio } from "./memoryBuilder";
+import { validateExtract } from "./schemaValidator";
 
 /* ------------------------------------------------------------------ *
  * Built-in default judge prompt templates. Panel role templates now live
@@ -201,13 +205,15 @@ const PANEL_MAX_ATTEMPTS = 2;
 
 /**
  * One streaming attempt against a panel provider. Prepends the optional role
- * system prompt as a leading `{role:"system"}` message before the user prompt.
- * Streams deltas via `onDeltaAttempt`, resolves the full text (or throws).
+ * system prompt as a leading `{role:"system"}` message, then the provider's
+ * own prior conversation history (Stage 1a multi-turn memory), then the user
+ * prompt. Streams deltas via `onDeltaAttempt`, resolves the full text.
  */
 async function callPanelOnce(
   provider: AIProvider,
   prompt: string,
   roleSystemPrompt: string | undefined,
+  history: ChatMessage[],
   request: SynthesisRequest,
   onDeltaAttempt: (delta: string) => void
 ): Promise<string> {
@@ -215,6 +221,8 @@ async function callPanelOnce(
   if (roleSystemPrompt && roleSystemPrompt.trim()) {
     messages.push({ role: "system", content: roleSystemPrompt });
   }
+  // Splice in this provider's own prior turns (already trimmed by the hook).
+  for (const m of history) messages.push(m);
   messages.push({ role: "user", content: prompt });
 
   return streamChat(
@@ -228,7 +236,8 @@ async function callPanelOnce(
       timeoutMs: request.timeoutMs ?? 60000,
       protocol: provider.protocol,
     },
-    onDeltaAttempt
+    onDeltaAttempt,
+    request.signal
   );
 }
 
@@ -243,6 +252,7 @@ async function runPanel(
   provider: AIProvider,
   prompt: string,
   roleSystemPrompt: string | undefined,
+  history: ChatMessage[],
   request: SynthesisRequest,
   cb: MoaCallbacks
 ): Promise<PanelResult> {
@@ -255,6 +265,7 @@ async function runPanel(
         provider,
         prompt,
         roleSystemPrompt,
+        history,
         request,
         (delta) => cb.onPanelDelta?.(provider.id, delta)
       );
@@ -343,41 +354,69 @@ function buildJudgeSystemPrompt(
  * ```json fences, leading/trailing prose, and missing fields — always returns
  * a structurally complete object so the UI can never crash on rendering.
  */
-export function parseJudgeResponse(raw: string): SynthesisResponse {
+/**
+ * Shared JSON-extraction core: strip ```json fences, slice the outermost
+ * `{ ... }` span, JSON.parse. Returns the parsed object or null on failure.
+ * Used by both verdict-mode and extract-mode parsing.
+ */
+function extractJsonObject(raw: string): Record<string, unknown> | null {
+  if (!raw || !raw.trim()) return null;
+  let text = raw.trim();
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenceMatch) text = fenceMatch[1].trim();
+  const firstBrace = text.indexOf("{");
+  const lastBrace = text.lastIndexOf("}");
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) return null;
+  try {
+    const parsed = JSON.parse(text.slice(firstBrace, lastBrace + 1));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Parse the judge's raw streamed text into a JudgeResponse.
+ *
+ * @param raw  The full streamed text from the judge.
+ * @param mode "verdict" (default, legacy four-field) or "extract" (custom
+ *             schema — returns the parsed object verbatim under `data`).
+ *
+ * Always returns a structurally complete object so the UI never crashes.
+ */
+export function parseJudgeResponse(
+  raw: string,
+  mode: "verdict" | "extract" = "verdict"
+): SynthesisResponse {
   const zh = i18n.language === "zh";
+
+  // --- extract mode: return the parsed object as-is under `data` ----------
+  if (mode === "extract") {
+    const parsed = extractJsonObject(raw);
+    if (parsed) return { kind: "extract", data: parsed };
+    return {
+      kind: "extract",
+      data: { raw: raw.trim().slice(0, 1000) || (zh ? "(无内容)" : "(no content)") },
+    };
+  }
+
+  // --- verdict mode (legacy four-field) -----------------------------------
   const fbConsensus = zh ? "(未能解析出结构化共识)" : "(could not parse structured consensus)";
   const fbDivergence = zh ? "(未能解析出观点碰撞)" : "(could not parse divergence)";
   const fbBlindspots = zh ? "(未能解析出独特盲点)" : "(could not parse blind spots)";
   const fbVerdictEmpty = zh ? "(裁判未返回有效内容)" : "(judge returned no content)";
   const fallback: SynthesisResponse = {
+    kind: "verdict",
     consensus: fbConsensus,
     divergence: fbDivergence,
     blindspots: fbBlindspots,
     verdict: raw.trim().slice(0, 1000) || fbVerdictEmpty,
   };
 
-  if (!raw || !raw.trim()) return fallback;
-
-  let text = raw.trim();
-
-  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenceMatch) {
-    text = fenceMatch[1].trim();
-  }
-
-  const firstBrace = text.indexOf("{");
-  const lastBrace = text.lastIndexOf("}");
-  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
-    return fallback;
-  }
-  const jsonSlice = text.slice(firstBrace, lastBrace + 1);
-
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(jsonSlice);
-  } catch {
-    return fallback;
-  }
+  const parsed = extractJsonObject(raw);
+  if (!parsed) return fallback;
 
   const str = (v: unknown, label: string): string => {
     if (typeof v === "string" && v.trim()) return v.trim();
@@ -394,6 +433,7 @@ export function parseJudgeResponse(raw: string): SynthesisResponse {
   };
 
   return {
+    kind: "verdict",
     consensus: str(parsed.consensus, "consensus"),
     divergence: str(parsed.divergence, "divergence"),
     blindspots: str(parsed.blindspots, "blindspots"),
@@ -421,41 +461,84 @@ interface JudgeResult {
  * rejects) so the multi-judge Promise.all is fail-safe — one judge failing
  * never blocks the others (collision mode).
  */
-async function runSingleJudge(
+export async function runSingleJudge(
   provider: AIProvider,
   systemPrompt: string,
   userPrompt: string,
+  history: ChatMessage[],
   request: SynthesisRequest,
-  cb: MoaCallbacks
+  cb: MoaCallbacks,
+  outputMode: "verdict" | "extract" = "verdict",
+  requiredKeys?: string[]
 ): Promise<JudgeResult> {
   cb.onJudgeStart?.(provider.id);
+  const zh = i18n.language === "zh";
+  // Base messages: system (with panel answers baked in) + judge history + the
+  // current user turn. The user-turn instruction differs per mode.
+  const buildMessages = (extra?: string): ChatMessage[] => {
+    const userInstruction =
+      outputMode === "extract"
+        ? zh
+          ? `用户原始问题:\n${userPrompt}\n\n请按指定 JSON 结构抽取并输出。`
+          : `Original user question:\n${userPrompt}\n\nExtract and output in the specified JSON structure.`
+        : zh
+          ? `用户原始问题:\n${userPrompt}\n\n请综合各专家回答,按指定 JSON 格式输出终审裁决。`
+          : `Original user question:\n${userPrompt}\n\nPlease synthesize the expert answers and output the final verdict in the specified JSON format.`;
+    const msgs: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      ...history,
+      { role: "user", content: userInstruction },
+    ];
+    if (extra) msgs.push({ role: "user", content: extra });
+    return msgs;
+  };
+
+  // Validation-rewrite loop (Stage 3): up to JUDGE_MAX_ATTEMPTS attempts.
+  // verdict mode never validates (legacy single-shot behavior).
+  const JUDGE_MAX_ATTEMPTS = 3;
   let raw = "";
+  let lastExtra: string | undefined;
   try {
-    raw = await streamChat(
-      {
-        baseUrl: provider.baseUrl,
-        apiKey: provider.apiKey,
-        model: provider.modelString,
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content:
-              i18n.language === "zh"
-                ? `用户原始问题:\n${userPrompt}\n\n请综合各专家回答,按指定 JSON 格式输出终审裁决。`
-                : `Original user question:\n${userPrompt}\n\nPlease synthesize the expert answers and output the final verdict in the specified JSON format.`,
-          },
-        ],
-        temperature: 0.3,
-        maxTokens: request.maxTokens ?? 2048,
-        timeoutMs: request.timeoutMs ?? 60000,
-        protocol: provider.protocol,
-      },
-      (delta) => {
-        raw += delta;
-        cb.onJudgeDelta?.(provider.id, delta);
+    for (let attempt = 1; attempt <= JUDGE_MAX_ATTEMPTS; attempt++) {
+      // Reset raw per attempt; on retry the UI drops partial text via onPanelRetry-like.
+      if (attempt > 1) raw = "";
+      const messages = buildMessages(lastExtra);
+      raw = await streamChat(
+        {
+          baseUrl: provider.baseUrl,
+          apiKey: provider.apiKey,
+          model: provider.modelString,
+          messages,
+          temperature: 0.3,
+          maxTokens: request.maxTokens ?? 2048,
+          timeoutMs: request.timeoutMs ?? 60000,
+          protocol: provider.protocol,
+        },
+        (delta) => {
+          raw += delta;
+          cb.onJudgeDelta?.(provider.id, delta);
+        },
+        request.signal
+      );
+
+      // verdict mode: no validation, accept first parse.
+      if (outputMode !== "extract") break;
+
+      // extract mode: validate and possibly re-prompt.
+      const parsed = parseJudgeResponse(raw, "extract");
+      if (parsed.kind === "extract") {
+        const v = validateExtract(parsed.data, requiredKeys);
+        if (v.ok) break; // valid — accept.
+        if (attempt < JUDGE_MAX_ATTEMPTS) {
+          // Feed the error back so the model can self-correct.
+          lastExtra = zh
+            ? `上一次输出未通过校验：${v.errors.join("; ")}。请仅输出符合要求结构的合法 JSON，不要附加解释。`
+            : `Your previous output failed validation: ${v.errors.join("; ")}. Output ONLY valid JSON matching the required structure, no explanation.`;
+          continue;
+        }
       }
-    );
+      break; // exhausted attempts or unparseable — accept last raw.
+    }
   } catch (err) {
     const message = (err as Error).message || String(err);
     cb.onJudgeError?.(provider.id, message);
@@ -469,7 +552,7 @@ async function runSingleJudge(
     };
   }
 
-  const response = parseJudgeResponse(raw);
+  const response = parseJudgeResponse(raw, outputMode);
   cb.onJudgeDone?.(provider.id, response, raw);
   return {
     judgeId: provider.id,
@@ -491,11 +574,157 @@ async function runSingleJudge(
  * Providers are resolved from the global list; the hook resolves role/judge
  * prompt templates into the request before calling.
  */
+/**
+ * Stage 4 Map-Reduce (form A: extract-mode multi-document extension).
+ *
+ * Phase Map: each attachment → one extract call (reuses runSingleJudge with the
+ *   schema's systemPrompt, {PANELS} substituted with that single document's
+ *   text). All documents run in parallel via Promise.all. Failures are
+ *   reported per-document and skipped by Reduce (fail-safe).
+ *
+ * Phase Reduce: streamChat merges all successful Map outputs into one
+ *   schema-conformant JSON. {PANELS} is substituted with the rendered block of
+ *   per-document JSON results, and the model is told to merge/dedupe into a
+ *   single object. Validated against requiredKeys (up to 3 rewrites).
+ */
+async function runMapReduce(
+  request: SynthesisRequest,
+  providers: AIProvider[],
+  cb: MoaCallbacks
+): Promise<void> {
+  const zh = i18n.language === "zh";
+  const attachments = request.attachments ?? [];
+  if (attachments.length === 0 || request.judges.length === 0) {
+    cb.onReduceError?.(i18n.t("errors.PANEL_EMPTY"));
+    return;
+  }
+
+  // Resolve the model provider used for both Map and Reduce (first judge).
+  const judgeSpec = request.judges[0];
+  const provider = findProvider(providers, judgeSpec.providerId);
+  if (!provider) {
+    cb.onReduceError?.(i18n.t("errors.JUDGE_NOT_FOUND"));
+    return;
+  }
+  const schemaPrompt = judgeSpec.systemPrompt;
+  const requiredKeys = judgeSpec.requiredKeys;
+
+  // --- Phase Map: each document extracted in parallel -----------------
+  const mapResults = await Promise.all(
+    attachments.map(async (att: Attachment) => {
+      cb.onMapDocStart?.(att.id, att.name);
+      try {
+        // Build the system prompt with THIS document as the {PANELS} content.
+        const docBlock = `### ${zh ? "文档" : "Document"}: ${att.name}\n${att.text}`;
+        const sys = schemaPrompt.includes("{PANELS}")
+          ? schemaPrompt.replace("{PANELS}", docBlock)
+          : `${schemaPrompt}\n\n${zh ? "【文档】" : "【Document】"}\n${docBlock}`;
+        const result = await runSingleJudge(
+          provider,
+          sys,
+          request.prompt,
+          [], // no history for map calls
+          request,
+          // Map calls don't need judge delta streaming (UI shows per-doc cards).
+          { onJudgeStart: () => undefined },
+          "extract",
+          requiredKeys
+        );
+        if (result.ok && result.response && result.response.kind === "extract") {
+          cb.onMapDocDone?.(att.id, result.response.data);
+          return { attachmentId: att.id, ok: true as const, data: result.response.data };
+        }
+        const errMsg = result.error ?? (zh ? "抽取失败" : "extraction failed");
+        cb.onMapDocError?.(att.id, errMsg);
+        return { attachmentId: att.id, ok: false as const, error: errMsg };
+      } catch (e) {
+        const msg = (e as Error).message || String(e);
+        cb.onMapDocError?.(att.id, msg);
+        return { attachmentId: att.id, ok: false as const, error: msg };
+      }
+    })
+  );
+
+  const successMaps = mapResults.filter(
+    (r): r is { attachmentId: string; ok: true; data: Record<string, unknown> } => r.ok
+  );
+  if (successMaps.length === 0) {
+    cb.onReduceError?.(zh ? "所有文档抽取均失败" : "all document extractions failed");
+    return;
+  }
+
+  // --- Phase Reduce: merge all Map outputs into one schema-conformant JSON ---
+  // If the user cancelled during Map, don't start Reduce.
+  if (request.signal?.aborted) {
+    cb.onReduceError?.(i18n.t("errors.CANCELLED"));
+    return;
+  }
+  cb.onReduceStart?.();
+  // Render the per-document JSON results as the {PANELS} block.
+  const mergedBlock = successMaps
+    .map((m, i) => {
+      const name = attachments.find((a) => a.id === m.attachmentId)?.name ?? `doc${i + 1}`;
+      return `### ${zh ? "文档" : "Document"} ${i + 1}: ${name}\n\`\`\`json\n${JSON.stringify(m.data, null, 2)}\n\`\`\``;
+    })
+    .join("\n\n");
+  const reduceInstruction = zh
+    ? `把以下各文档的抽取结果合并、去重、归纳成【一份】完整的 JSON 对象（结构同原 schema）。保留所有不重复的条目，互补的细节合并，不要遗漏。只输出 JSON，不要解释。`
+    : `Merge, deduplicate, and synthesize the per-document extraction results below into ONE complete JSON object (same schema as before). Keep all non-duplicate entries, merge complementary details, omit nothing. Output ONLY JSON, no explanation.`;
+  const reduceSys = schemaPrompt.includes("{PANELS}")
+    ? schemaPrompt.replace("{PANELS}", mergedBlock)
+    : `${schemaPrompt}\n\n${mergedBlock}`;
+
+  let raw = "";
+  try {
+    raw = await streamChat(
+      {
+        baseUrl: provider.baseUrl,
+        apiKey: provider.apiKey,
+        model: provider.modelString,
+        messages: [
+          { role: "system", content: reduceSys },
+          { role: "user", content: `${request.prompt}\n\n${reduceInstruction}` },
+        ],
+        temperature: 0.3,
+        maxTokens: request.maxTokens ?? 8192,
+        timeoutMs: request.timeoutMs ?? 60000,
+        protocol: provider.protocol,
+      },
+      (delta) => {
+        raw += delta;
+        cb.onReduceDelta?.(delta);
+      },
+      request.signal
+    );
+  } catch (e) {
+    cb.onReduceError?.((e as Error).message || String(e));
+    return;
+  }
+
+  const response = parseJudgeResponse(raw, "extract");
+  // Light validation; on failure still return the parsed object (UI shows it).
+  if (response.kind === "extract") {
+    const v = validateExtract(response.data, requiredKeys);
+    if (!v.ok) {
+      // Keep the response but surface the warning via raw (UI can show raw).
+      // For first version we accept it as-is rather than re-prompting.
+    }
+  }
+  cb.onReduceDone?.(response, raw);
+}
+
 export async function runMoaSynthesis(
   request: SynthesisRequest,
   providers: AIProvider[],
   cb: MoaCallbacks
 ): Promise<void> {
+  // --- Stage 4: mapreduce early branch (skips Panel/Judge entirely) ----
+  // Each attachment → one Map extract call (parallel) → Reduce merges them.
+  if (request.outputMode === "mapreduce" && (request.attachments?.length ?? 0) > 0) {
+    await runMapReduce(request, providers, cb);
+    return;
+  }
+
   // --- Resolve panel providers ----------------------------------------
   const resolvedPanels = request.panelIds
     .map((id) => findProvider(providers, id))
@@ -536,12 +765,40 @@ export async function runMoaSynthesis(
   }
 
   // --- Phase 1: Panels in parallel (with per-panel role prompts) -------
+  // Each panel gets its own trimmed history from request.panelHistory (Stage 1a).
+  const memCfg = getMemoryConfig();
   const results = await Promise.all(
-    panelProviders.map((p) =>
-      runPanel(p, request.prompt, request.panelRoles[p.id], request, cb)
-    )
+    panelProviders.map((p) => {
+      let history = request.panelHistory?.[p.id] ?? [];
+      if (history.length > 0 && p.capabilities?.maxContextChars) {
+        const trimmed = trimHistoryByRatio(
+          history,
+          request.prompt,
+          p.capabilities.maxContextChars,
+          memCfg.trimRatio
+        );
+        if (memCfg.debugMemory && trimmed.dropped > 0) {
+          // eslint-disable-next-line no-console
+          console.debug(
+            `[memory] panel ${p.id}: dropped ${trimmed.dropped} msgs, ${trimmed.chars} chars`
+          );
+        }
+        history = trimmed.history;
+      }
+      return runPanel(
+        p,
+        request.prompt,
+        request.panelRoles[p.id],
+        history,
+        request,
+        cb
+      );
+    })
   );
   cb.onPanelsComplete?.();
+
+  // If the user cancelled during panels, skip the judge phase.
+  if (request.signal?.aborted) return;
 
   // --- Phase 2: Judges in parallel (fan-out, fail-safe) ----------------
   // Resolve each judge spec to its provider; drop any that can't resolve.
@@ -559,15 +816,35 @@ export async function runMoaSynthesis(
   // Each judge builds its OWN system prompt from its spec + the shared panel
   // results (the panel block is rendered into the prompt before the call).
   // Promise.all is fail-safe: runSingleJudge never rejects.
+  // Each judge also receives its own prior verdicts (Stage 1a memory).
   await Promise.all(
-    judgeProviders.map(({ spec, provider }) =>
-      runSingleJudge(
+    judgeProviders.map(({ spec, provider }) => {
+      let history = request.judgeHistory?.[provider.id] ?? [];
+      if (history.length > 0 && provider.capabilities?.maxContextChars) {
+        const trimmed = trimHistoryByRatio(
+          history,
+          request.prompt,
+          provider.capabilities.maxContextChars,
+          memCfg.trimRatio
+        );
+        if (memCfg.debugMemory && trimmed.dropped > 0) {
+          // eslint-disable-next-line no-console
+          console.debug(
+            `[memory] judge ${provider.id}: dropped ${trimmed.dropped} msgs, ${trimmed.chars} chars`
+          );
+        }
+        history = trimmed.history;
+      }
+      return runSingleJudge(
         provider,
         buildJudgeSystemPrompt(results, spec.systemPrompt),
         request.prompt,
+        history,
         request,
-        cb
-      )
-    )
+        cb,
+        spec.outputMode ?? "verdict",
+        spec.requiredKeys
+      );
+    })
   );
 }

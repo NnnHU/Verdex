@@ -22,19 +22,23 @@
 import type {
   AIProvider,
   ChatSession,
+  ExtractSchemaTemplate,
   JudgePromptTemplate,
   RoleTemplate,
 } from "../types/moa";
+import { getEnvProvider } from "./envConfig";
 
 // Bundled template string (Vite ?raw import). Kept out of the runtime fetch
 // path — it ships in the JS bundle.
 import templateRaw from "./config.template.json?raw";
 
-/** The on-disk / on-storage shape: all five persisted domains in one object. */
+/** The on-disk / on-storage shape: all persisted domains in one object. */
 export interface ConfigFile {
   providers: AIProvider[];
   roleTemplates: RoleTemplate[];
   judgePrompts: JudgePromptTemplate[];
+  /** Stage 3 custom extract-schema templates. */
+  extractSchemas: ExtractSchemaTemplate[];
   sessions: ChatSession[];
   currentSessionId: string | null;
   /** UI language: "en" (default) or "zh". */
@@ -259,8 +263,20 @@ export async function loadConfig(): Promise<ConfigFile> {
     }
   }
 
-  // 3. Template.
-  return getTemplateConfig();
+  // 3. Template — but if a Provider seed is available via .env (VITE_VERDEX_*
+  //    env vars), inject it so first launch is pre-configured. This ONLY runs
+  //    when no config.json/localStorage exists; once the user has any config,
+  //    step 1 returns it and this branch is never reached. The seed never
+  //    overwrites user edits made in the UI.
+  const template = getTemplateConfig();
+  const envProvider = getEnvProvider();
+  if (envProvider) {
+    return {
+      ...template,
+      providers: [envProvider, ...template.providers],
+    };
+  }
+  return template;
 }
 
 /**
@@ -298,6 +314,7 @@ function normalizeConfigShape(raw: Partial<ConfigFile>): ConfigFile {
     providers,
     roleTemplates: Array.isArray(raw.roleTemplates) ? raw.roleTemplates : [],
     judgePrompts: Array.isArray(raw.judgePrompts) ? raw.judgePrompts : [],
+    extractSchemas: Array.isArray(raw.extractSchemas) ? raw.extractSchemas : [],
     sessions: Array.isArray(raw.sessions) ? raw.sessions : [],
     currentSessionId: raw.currentSessionId ?? null,
     language: raw.language === "zh" ? "zh" : "en",

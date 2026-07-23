@@ -4,22 +4,42 @@
  *  - Enter inserts a newline; Ctrl/Cmd+Enter sends.
  *  - Empty input can't be sent.
  *  - Disabled (with a "运行中…" label) while a synthesis is running.
+ *  - 📎 button attaches txt/md documents (Stage 2); their text is prepended to
+ *    the prompt by the hook. Attachments are session-scoped.
  */
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { Attachment } from "../types/moa";
 
 interface ChatInputProps {
   onSend: (prompt: string) => void;
   running: boolean;
+  /** Abort the in-flight synthesis (shown as a Stop button while running). */
+  onStop?: () => void;
   placeholder?: string;
+  /** Session attachments to display as chips. */
+  attachments?: Attachment[];
+  /** Add files (called by the 📎 picker; the hook does the reading). */
+  onAddFiles?: (files: File[]) => void;
+  /** Remove one attachment by id. */
+  onRemoveAttachment?: (attachmentId: string) => void;
 }
 
 const MAX_HEIGHT = 200; // px, before the textarea starts scrolling
 
-export function ChatInput({ onSend, running, placeholder }: ChatInputProps) {
+export function ChatInput({
+  onSend,
+  running,
+  onStop,
+  placeholder,
+  attachments = [],
+  onAddFiles,
+  onRemoveAttachment,
+}: ChatInputProps) {
   const { t } = useTranslation();
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-grow the textarea to fit its content.
   useEffect(() => {
@@ -55,38 +75,117 @@ export function ChatInput({ onSend, running, placeholder }: ChatInputProps) {
     }
   };
 
+  const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0 && onAddFiles) {
+      onAddFiles(Array.from(files));
+    }
+    // Reset so picking the same file twice fires change again.
+    e.target.value = "";
+  };
+
   const canSend = value.trim().length > 0 && !running;
+  const hasAttachments = attachments.length > 0;
 
   return (
     <div className="border-t border-hairline bg-canvas/95 px-4 py-3 backdrop-blur">
-      <div className="mx-auto flex max-w-4xl items-end gap-2">
-        <div className="flex-1 rounded-xl border border-hairline-strong bg-surface/80 focus-within:border-accent/60 focus-within:ring-1 focus-within:ring-accent/30 transition-colors">
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={1}
-            placeholder={placeholder ?? t("chatInput.placeholder")}
-            className="block max-h-[200px] w-full resize-none bg-transparent px-3.5 py-2.5 text-sm text-ink-strong placeholder:text-ink-muted focus:outline-none"
-          />
+      <div className="mx-auto max-w-4xl">
+        {/* Attachment chips (above the textarea) */}
+        {hasAttachments && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {attachments.map((a) => (
+              <span
+                key={a.id}
+                className="inline-flex items-center gap-1 rounded-md border border-hairline-strong bg-surface px-2 py-0.5 text-[11px] text-ink-muted"
+                title={a.name}
+              >
+                <span className="max-w-[180px] truncate text-ink">
+                  {a.name}
+                </span>
+                <span className="text-ink-faint">
+                  {t("chatInput.attachmentChars", { chars: a.chars.toLocaleString() })}
+                  {a.truncated ? ` · ${t("chatInput.attachmentTruncated")}` : ""}
+                </span>
+                {onRemoveAttachment && (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveAttachment(a.id)}
+                    disabled={running}
+                    aria-label={t("chatInput.attachmentRemove")}
+                    className="ml-0.5 text-ink-faint hover:text-danger disabled:opacity-50"
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-end gap-2">
+          {/* 📎 attach button */}
+          {onAddFiles && (
+            <>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={running}
+                title={t("chatInput.attachTooltip")}
+                aria-label={t("chatInput.attachTooltip")}
+                className="shrink-0 rounded-xl border border-hairline-strong bg-surface/80 px-3 py-2.5 text-sm transition-colors hover:border-accent/60 hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {t("chatInput.attach")}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".txt,.md,.markdown,text/plain,text/markdown"
+                onChange={handleFilePick}
+                className="hidden"
+              />
+            </>
+          )}
+
+          <div className="flex-1 rounded-xl border border-hairline-strong bg-surface/80 focus-within:border-accent/60 focus-within:ring-1 focus-within:ring-accent/30 transition-colors">
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              placeholder={placeholder ?? t("chatInput.placeholder")}
+              className="block max-h-[200px] w-full resize-none bg-transparent px-3.5 py-2.5 text-sm text-ink-strong placeholder:text-ink-muted focus:outline-none"
+            />
+          </div>
+          {running && onStop ? (
+            <button
+              type="button"
+              onClick={onStop}
+              className="shrink-0 rounded-xl bg-error/90 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-error active:bg-error/80"
+            >
+              {t("chatInput.stop")}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={submit}
+              disabled={!canSend}
+              className={
+                "shrink-0 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors " +
+                (canSend
+                  ? "bg-accent text-on-accent hover:bg-accent-soft active:bg-accent-hover"
+                  : "cursor-not-allowed bg-surface-2 text-ink-muted")
+              }
+            >
+              {t("chatInput.send")}
+            </button>
+          )}
         </div>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!canSend}
-          className={
-            "shrink-0 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors " +
-            (canSend
-              ? "bg-accent text-on-accent hover:bg-accent-soft active:bg-accent-hover"
-              : "cursor-not-allowed bg-surface-2 text-ink-muted")
-          }
-        >
-          {running ? t("chatInput.running") : t("chatInput.send")}
-        </button>
-      </div>
-      <div className="mx-auto mt-1.5 max-w-4xl text-center text-[11px] text-ink-faint">
-        {t("chatInput.hint")}
+        <div className="mt-1.5 text-center text-[11px] text-ink-faint">
+          {t("chatInput.hint")}
+          {hasAttachments ? ` · ${t("chatInput.attachmentsHint")}` : ""}
+        </div>
       </div>
     </div>
   );

@@ -6,6 +6,13 @@ Multiple AI models answer in parallel (the Panel), then a judge model synthesize
 
 [中文文档 (Chinese README)](./README_CN.md)
 
+## Documentation
+
+| Doc | Purpose |
+|---|---|
+| [docs/HANDOFF.md](./docs/HANDOFF.md) | Handoff doc for new sessions: what's done, where it's stuck, pitfalls, architecture decisions |
+| [docs/ORCHESTRATION_ROADMAP.md](./docs/ORCHESTRATION_ROADMAP.md) | Roadmap for upgrading Verdex into a general-purpose orchestration platform (5 phases) |
+
 ## Tech Stack
 
 | Layer | Technology |

@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
   AIProvider,
+  ExtractSchemaTemplate,
   JudgePromptTemplate,
   ProtocolType,
   RoleTemplate,
@@ -20,12 +21,14 @@ import {
   normalizeBase,
   testProvider,
 } from "../services/httpClient";
+import { filterByLanguage } from "../services/templateFilter";
 
 interface SettingsModalProps {
   open: boolean;
   providers: AIProvider[];
   roleTemplates: RoleTemplate[];
   judgePrompts: JudgePromptTemplate[];
+  extractSchemas: ExtractSchemaTemplate[];
   onClose: () => void;
   // Provider CRUD
   onAddProvider: () => void;
@@ -39,6 +42,10 @@ interface SettingsModalProps {
   onAddJudgePrompt: () => void;
   onUpdateJudgePrompt: (id: string, patch: Partial<JudgePromptTemplate>) => void;
   onRemoveJudgePrompt: (id: string) => void;
+  // Extract schema CRUD (Stage 3)
+  onAddSchema: () => void;
+  onUpdateSchema: (id: string, patch: Partial<ExtractSchemaTemplate>) => void;
+  onRemoveSchema: (id: string) => void;
 }
 
 const inputCls =
@@ -361,6 +368,89 @@ function JudgePromptRow({
   );
 }
 
+function SchemaRow({
+  template,
+  onUpdate,
+  onRemove,
+}: {
+  template: ExtractSchemaTemplate;
+  onUpdate: (patch: Partial<ExtractSchemaTemplate>) => void;
+  onRemove: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="rounded-lg border border-card-verdict/30 bg-card-verdict/10 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="truncate text-sm font-medium text-ink">
+          {template.name || t("common.unnamed")}
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            if (
+              window.confirm(
+                t("templatesModal.deleteSchemaConfirm", {
+                  name: template.name || t("common.unnamed"),
+                })
+              )
+            ) {
+              onRemove();
+            }
+          }}
+          className="rounded px-2 py-0.5 text-[11px] text-ink-muted hover:bg-error/10 hover:text-error"
+        >
+          {t("common.delete")}
+        </button>
+      </div>
+      <div className="space-y-2">
+        <label className="block">
+          <span className="mb-0.5 block text-[10px] uppercase tracking-wide text-ink-muted">
+            {t("templatesModal.schemaName")}
+          </span>
+          <input
+            type="text"
+            value={template.name}
+            onChange={(e) => onUpdate({ name: e.target.value })}
+            placeholder={t("templatesModal.schemaNamePlaceholder")}
+            className={inputCls}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-0.5 block text-[10px] uppercase tracking-wide text-ink-muted">
+            {t("templatesModal.schemaBody")}
+          </span>
+          <textarea
+            value={template.systemPrompt}
+            onChange={(e) => onUpdate({ systemPrompt: e.target.value })}
+            rows={5}
+            placeholder={t("templatesModal.schemaBodyPlaceholder")}
+            className={inputCls + " resize-y font-mono leading-relaxed"}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-0.5 block text-[10px] uppercase tracking-wide text-ink-muted">
+            {t("templatesModal.schemaRequiredKeys")}
+          </span>
+          <input
+            type="text"
+            value={(template.requiredKeys ?? []).join(", ")}
+            onChange={(e) =>
+              onUpdate({
+                requiredKeys: e.target.value
+                  .split(",")
+                  .map((k) => k.trim())
+                  .filter(Boolean),
+              })
+            }
+            placeholder={t("templatesModal.schemaRequiredKeysPlaceholder")}
+            className={inputCls}
+          />
+        </label>
+      </div>
+    </div>
+  );
+}
+
 /* ===================== Unified modal ===================== */
 
 export function SettingsModal({
@@ -378,9 +468,14 @@ export function SettingsModal({
   onAddJudgePrompt,
   onUpdateJudgePrompt,
   onRemoveJudgePrompt,
+  extractSchemas,
+  onAddSchema,
+  onUpdateSchema,
+  onRemoveSchema,
 }: SettingsModalProps) {
-  const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"providers" | "templates">(
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language.startsWith("zh") ? "zh" : "en";
+  const [activeTab, setActiveTab] = useState<"providers" | "templates" | "schemas">(
     "providers"
   );
   const [testResults, setTestResults] = useState<
@@ -477,6 +572,18 @@ export function SettingsModal({
             >
               {t("settingsModal.tabTemplates")}
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("schemas")}
+              className={
+                "rounded-t-md border-b-2 px-3 py-1.5 text-xs font-medium transition-colors " +
+                (activeTab === "schemas"
+                  ? "border-accent text-accent"
+                  : "border-transparent text-ink-muted hover:text-ink")
+              }
+            >
+              {t("settingsModal.tabSchemas")}
+            </button>
           </div>
         </div>
 
@@ -524,12 +631,12 @@ export function SettingsModal({
                   </button>
                 </div>
                 <div className="space-y-2">
-                  {roleTemplates.length === 0 && (
+                  {filterByLanguage(roleTemplates, lang).length === 0 && (
                     <div className="rounded-lg border border-dashed border-hairline-strong p-4 text-center text-[11px] text-ink-muted">
                       {t("templatesModal.noRoles")}
                     </div>
                   )}
-                  {roleTemplates.map((r) => (
+                  {filterByLanguage(roleTemplates, lang).map((r) => (
                     <RoleRow
                       key={r.id}
                       template={r}
@@ -554,12 +661,12 @@ export function SettingsModal({
                   </button>
                 </div>
                 <div className="space-y-2">
-                  {judgePrompts.length === 0 && (
+                  {filterByLanguage(judgePrompts, lang).length === 0 && (
                     <div className="rounded-lg border border-dashed border-hairline-strong p-4 text-center text-[11px] text-ink-muted">
                       {t("templatesModal.noJudgePrompts")}
                     </div>
                   )}
-                  {judgePrompts.map((j) => (
+                  {filterByLanguage(judgePrompts, lang).map((j) => (
                     <JudgePromptRow
                       key={j.id}
                       template={j}
@@ -569,6 +676,39 @@ export function SettingsModal({
                   ))}
                 </div>
               </section>
+            </div>
+          )}
+
+          {activeTab === "schemas" && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-ink-muted">
+                  {t("templatesModal.schemas")}
+                </span>
+                <button
+                  type="button"
+                  onClick={onAddSchema}
+                  className="rounded-md border border-hairline-strong bg-surface px-2.5 py-1 text-[11px] text-ink-muted hover:border-accent/60 hover:text-ink"
+                >
+                  {t("templatesModal.addSchema")}
+                </button>
+              </div>
+              {filterByLanguage(extractSchemas, lang).length === 0 ? (
+                <div className="rounded-lg border border-dashed border-hairline-strong px-3 py-6 text-center text-[11px] text-ink-faint">
+                  {t("templatesModal.noSchemas")}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filterByLanguage(extractSchemas, lang).map((s) => (
+                    <SchemaRow
+                      key={s.id}
+                      template={s}
+                      onUpdate={(patch) => onUpdateSchema(s.id, patch)}
+                      onRemove={() => onRemoveSchema(s.id)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

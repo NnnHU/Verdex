@@ -9,7 +9,8 @@
     "done": "Done",
     "unknownError": "Unknown error",
     "newSession": "New chat",
-    "rounds": "rounds"
+    "rounds": "rounds",
+    "elapsed": "⏱ {{s}}s"
   },
   "app": {
     "title": "Verdex · MoA Synthesis Engine",
@@ -32,7 +33,17 @@
     "placeholder": "Ask the expert panel… (Ctrl/⌘+Enter to send)",
     "send": "Send",
     "running": "Running…",
-    "hint": "Enter for newline · Ctrl/⌘+Enter to send"
+    "hint": "Enter for newline · Ctrl/⌘+Enter to send",
+    "stop": "Stop",
+    "stopping": "Stopping…",
+    "attach": "📎",
+    "attachTooltip": "Attach txt/md documents — their text is prepended to your prompt",
+    "attachmentLabel": "Attachment: {{name}}",
+    "attachmentChars": "{{chars}} chars",
+    "attachmentTruncated": "truncated",
+    "attachmentRemove": "Remove",
+    "readError": "Failed to read: {{message}}",
+    "attachmentsHint": "Attachments are sent with every message in this session"
   },
   "judge": {
     "loading": "Judge is synthesizing {{count}} experts' answers",
@@ -44,6 +55,7 @@
     "divergence": "⚔️ Divergence",
     "blindspots": "💡 Blind Spots",
     "verdict": "⚖️ Final Verdict",
+    "extractHeader": "📋 Extracted Structure",
     "showRaw": "View raw JSON",
     "hideRaw": "Hide raw JSON"
   },
@@ -81,12 +93,23 @@
     "judgesCollision": "Judges (collision, ≥2)",
     "judgePrompt": "Judge prompt",
     "default": "(default)",
-    "collisionPrompts": "Per-judge prompts (aligned in order):"
+    "collisionPrompts": "Per-judge prompts (aligned in order):",
+    "outputMode": "Output",
+    "outputModeTooltip": "verdict = four-field synthesis (default); extract = custom-schema JSON structured extraction",
+    "outputModeVerdict": "Verdict",
+    "outputModeExtract": "Extract",
+    "outputModeMapreduce": "Map-Reduce",
+    "mapreduceHint": "Documents processed in parallel, then merged — for large multi-doc corpora",
+    "extractSchema": "Schema",
+    "extractSchemaTooltip": "Pick a custom JSON schema for extract mode. Manage schemas in Settings → Schemas.",
+    "memory": "Memory",
+    "memoryTooltip": "When on, each Panel/Judge sees its own prior turns as context (multi-turn memory). Turn off for stateless single-turn runs."
   },
   "settingsModal": {
     "title": "⚙️ Settings",
     "tabProviders": "📦 Providers",
     "tabTemplates": "🎭 Templates",
+    "tabSchemas": "📋 Schemas",
     "description": "Manage global OpenAI-compatible endpoints. Any model can serve as Panel or Judge in any session.",
     "closeAria": "Close",
     "emptyState": "No models yet. Click \"Add model\" below to create your first provider.",
@@ -139,7 +162,34 @@
     "judgePromptNamePlaceholder": "Default four-field verdict",
     "judgePromptBody": "System Prompt (use {PANELS} as expert answers insertion point)",
     "judgePromptBodyPlaceholder": "You are a top judge…\n{PANELS}\nOutput JSON…",
-    "deletePromptConfirm": "Delete prompt \"{{name}}\"? All sessions referencing it will be updated."
+    "deletePromptConfirm": "Delete prompt \"{{name}}\"? All sessions referencing it will be updated.",
+    "schemas": "Extract schemas (custom JSON structures for extract mode)",
+    "addSchema": "+ Add schema",
+    "noSchemas": "No extract schemas yet. Click \"Add schema\" to create one.",
+    "schemaName": "Schema name",
+    "schemaNamePlaceholder": "Mental Model Library",
+    "schemaBody": "Instruction (tell the judge what JSON to output; use {PANELS} for expert answers)",
+    "schemaBodyPlaceholder": "Output a JSON object with fields:\n思维模型: [ {名称, 定义, 关键数据, 应用规则} ]\n因果链: [ ... ]\n{PANELS}",
+    "schemaRequiredKeys": "Required top-level keys (comma-separated, for validation)",
+    "schemaRequiredKeysPlaceholder": "思维模型, 因果链, 交易模型",
+    "deleteSchemaConfirm": "Delete schema \"{{name}}\"? Sessions using it will fall back to verdict mode."
+  },
+  "memory": {
+    "summaryPrefix": "【Conversation summary so far】"
+  },
+  "mapReduce": {
+    "mapHeader": "📄 Document extraction (Map)",
+    "reduceHeader": "📋 Merged result (Reduce)",
+    "docMapping": "extracting…",
+    "docDone": "✓ extracted",
+    "docError": "✗ failed",
+    "docFields": "{{count}} fields",
+    "mapProgress": "{{done}}/{{total}} done",
+    "reduceRunning": "merging…",
+    "reduceWaiting": "waiting for Map to finish…",
+    "reduceEmpty": "(no documents extracted)",
+    "showRaw": "View raw JSON",
+    "hideRaw": "Hide raw JSON"
   },
   "sidebar": {
     "brandSubtitle": "MoA Synthesis Engine",
@@ -166,6 +216,7 @@
     "SESSION_INTERRUPTED": "Session interrupted",
     "INPUT_INVALID": "Input validation failed",
     "REQUEST_TIMEOUT": "Request timeout ({{s}}s)",
+    "CANCELLED": "Cancelled by user",
     "REQUEST_FAILED": "Request failed: {{message}}",
     "CONNECT_OK": "Connection OK",
     "CONNECT_TIMEOUT": "Connection timeout (20s)"

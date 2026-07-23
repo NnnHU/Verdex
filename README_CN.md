@@ -6,6 +6,13 @@
 
 [English README](./README.md)
 
+## 项目文档
+
+| 文档 | 用途 |
+|---|---|
+| [docs/HANDOFF.md](./docs/HANDOFF.md) | 接手文档：已完成功能、当前卡点、踩过的坑、架构决策 |
+| [docs/ORCHESTRATION_ROADMAP.md](./docs/ORCHESTRATION_ROADMAP.md) | 编排能力融合路线图：把 Verdex 升级成通用编排平台（5 阶段） |
+
 ## 技术栈
 
 | 层 | 技术 |

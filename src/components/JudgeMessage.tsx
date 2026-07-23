@@ -8,6 +8,7 @@
  */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { JsonCardRenderer } from "./JsonCardRenderer";
 import type {
   JudgeStatus,
   PanelState,
@@ -140,9 +141,45 @@ export function JudgeMessage({
     );
   }
 
-  // ---- Done: render four structured cards ----
+  // ---- Done: render ----
   if (!response) return null;
 
+  // extract mode: generic JSON card render (Stage 3).
+  if (response.kind === "extract") {
+    return (
+      <div className="flex justify-start px-4 py-3">
+        <div className="flex max-w-3xl items-start gap-2.5">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-2 text-sm">
+            📋
+          </div>
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="text-[11px] uppercase tracking-wider text-ink-muted">
+              {judgeLabel ? t("judge.headerWithLabel", { label: judgeLabel }) : t("judge.extractHeader")}
+            </div>
+            <JsonCardRenderer data={response.data} />
+            {raw && (
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowRaw((v) => !v)}
+                  className="text-[11px] text-ink-muted hover:text-ink"
+                >
+                  {showRaw ? t("judge.hideRaw") : t("judge.showRaw")}
+                </button>
+                {showRaw && (
+                  <pre className="mt-1 max-h-60 overflow-auto rounded bg-surface-2 p-2 text-[11px] text-ink-muted whitespace-pre-wrap break-words">
+                    {raw}
+                  </pre>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // verdict mode: four structured cards (legacy).
   return (
     <div className="flex justify-start px-4 py-3">
       <div className="flex max-w-3xl items-start gap-2.5">
