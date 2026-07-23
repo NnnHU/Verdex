@@ -126,8 +126,8 @@ export function getMemoryConfig(): MemoryConfig {
   const forceRaw = str("VITE_VERDEX_MAPREDUCE_FORCE") ?? "auto";
   const mapreduceForceRaw: "auto" | "always" | "never" =
     forceRaw === "always" || forceRaw === "never" ? forceRaw : "auto";
-  const triggerRaw = num("VITE_VERDEX_MAPREDUCE_TRIGGER_RATIO", 0.4);
-  const mapreduceTriggerRatio = triggerRaw > 0 && triggerRaw <= 1 ? triggerRaw : 0.4;
+  const triggerRaw = num("VITE_VERDEX_MAPREDUCE_TRIGGER_RATIO", 0.75);
+  const mapreduceTriggerRatio = triggerRaw > 0 && triggerRaw <= 1 ? triggerRaw : 0.75;
   const docCountThresholdRaw = num("VITE_VERDEX_MAPREDUCE_DOC_THRESHOLD", 4);
   cachedMemory = {
     recentTurns: Math.max(1, Math.floor(num("VITE_VERDEX_MEMORY_RECENT_TURNS", 8))),

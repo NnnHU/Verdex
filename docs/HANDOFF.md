@@ -272,22 +272,23 @@
 4. **Reduce 超时**：合并 7 份 JSON 重，180s 不够。`.env` 超时 180s→360s；Reduce maxTokens 4096→8192。
 - 验证：tsc 0 错、63/63 测试、build 通过。
 
-### 🟡 待评估（需更多测试，暂未定夺）
+### ✅ Map-Reduce 触发阈值 —— 已定夺（2026-07-24，真实基准驱动）
 
-**Map-Reduce 触发阈值（force/auto）—— 核心待评估项**：
-- **现状**：`.env` 当前是 `VITE_VERDEX_MAPREDUCE_FORCE=always`（测试临时设的），`TRIGGER_RATIO=0.6`。
-- **问题**：auto 模式下触发条件是"总字符 > maxContextChars × triggerRatio"= 200000 × 0.6 = **12 万字符**。但实测 7 份格兰瑟姆仅 **7.4 万字符**，单次 extract 塞 7 份会超时（阶段 2 实测），却**低于 12 万阈值 → auto 不触发 → 降级成单次 extract → 超时**。说明**阈值 0.6 偏高**，与实际体验不符。
-- **候选方案（待用户评估）**：
-  - (a) 调低 triggerRatio 到 0.3（阈值变 6 万，7 份 7.4 万会触发）——但太小文档也切分，浪费
-  - (b) 按"附件份数 + 总字符"双条件（如 ≥3 份 或 总字符>阈值才触发）
-  - (c) 保持 force=always 作默认（简单但小文档也切分）
-  - (d) 让用户在 UI 显式选（最灵活但增复杂度）
-- **待用户做更多测试后定夺**：测试不同文档数量/大小组合，观察 auto 何时该触发，再定阈值或改逻辑。
-- **当前 `.env` 保持 force=always**，直到评估完成。`.env.example` 仍写 auto（作推荐默认参考）。
+**最终决策：单次优先**。auto 模式只在"总字符 > maxContextChars × 0.75（15 万）"或"单份附件超上下文"时触发 Map-Reduce；否则单次 Extract。份数不再触发。
 
-**Reduce 性能（待评估稳定性）**：
-- 实测 7 份 Map 合并，Reduce 耗时 2-3 分钟，360s 超时刚够。需更多测试确认：①是否稳定不超时；②更多文档（如 20 份）Reduce 是否可行；③Reduce 输出质量（去重/归纳是否准确）。
-- 若 Reduce 经常超时，候选优化：Reduce 分批合并（先两两合并再合并）、精简 Map 输出后再 Reduce、Reduce 用更强模型。
+**依据（真实 API 基准，scripts/perf-test.mjs）**：
+
+| 组合 | 字数 | 单次 Extract | Map-Reduce | 结论 |
+|---|---|---|---|---|
+| C(5份) | 5.3 万 | **36s** | Map 34s + Reduce 119s = 153s | 单次快 4.3× |
+| D(7份) | 7.4 万 | **47s** | Map 31s + Reduce 187s = 218s | 单次快 4.7× |
+| F(3份大) | 9.7 万 | **34s** | — | 单次够快 |
+
+- **大模型（V3, 64K+ 上下文）单次处理 10 万字符只要 34-47s**，远快于 Map-Reduce（Reduce 合并任务本身重，119-187s）。
+- **Map-Reduce 的价值场景**：① 小模型（8-32K 上下文，单次塞不下）；② 超大语料（>15 万字符，任何模型都塞不下）。对 V3 处理 10 万字符以内，Map-Reduce 是负优化。
+- **配置**：`.env` `FORCE=auto`, `TRIGGER_RATIO=0.75`, force=always/never 供小模型/特殊场景覆盖。小模型用户应调小 MAX_CONTEXT_CHARS 或 force=always。
+
+**树形 Reduce —— 取消**。原计划优化"Reduce 太慢"，但根本问题是"对大模型 Map-Reduce 整体不如单次"。优化 Reduce 也只是 153s→~90s，仍远慢于单次 36s。前提不成立，不做。
 
 ### 🟡 待优化（用户反馈，体验类，非功能 bug）
 
