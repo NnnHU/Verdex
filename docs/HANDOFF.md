@@ -1,7 +1,7 @@
 # Verdex 交接文档
 
 > 写给一个**完全没有上下文的新会话**。读完这份文档，你应该能接手继续开发。
-> 最后更新：2026-07-24（阶段 1a/1b/2/3/4 全部完成 + 体验三件套；第四节并入 [`ORCHESTRATION_ROADMAP.md`](./ORCHESTRATION_ROADMAP.md) 路线图）
+> 最后更新：2026-07-24（全部 5 阶段 + ASR 清洗 + 体验三件套完成；整条路线图走完）
 
 ---
 
@@ -110,7 +110,7 @@
 | **2 · 文档输入入口（txt/md）** | 数据来源（往会话喂文档） | ✅ 已完成（2026-07-23：tsc 0 错、44/44 测试、build 通过） |
 | **3 · 自定义 schema 抽取 + 校验闭环** | 稳定产出结构化 JSON | ✅ 已完成（2026-07-23：tsc 0 错、54/54 测试、build 通过） |
 | **4 · 自适应 Map-Reduce** | 处理任意规模文档 | ✅ 已完成（2026-07-24：tsc 0 错、63/63 测试、build 通过） |
-| **5 · ASR / 数据清洗（可选开关）** | 脏数据鲁棒性 | ⬜ 未开始 |
+| **5 · ASR / 数据清洗（可选开关）** | 脏数据鲁棒性 | ✅ 已完成（2026-07-24：tsc 0 错、65/65 测试、build 通过） |
 
 **关键决策摘要**（详见 ROADMAP §6/§7/§8）：
 - JSON 结构选 **A（自定义 schema）直做**，不做 B（固定四段）过渡；**四段裁决降级为 A 的默认预置模板**，继承现有 `parseJudgeResponse` + 四段 prompt 代码。
@@ -305,6 +305,26 @@
 **其他体验**：
 - 配置栏 Output 选 mapreduce 时，Panel 选择应置灰/隐藏（mapreduce 不用 Panel，留着误导）。
 - Map 失败的文档目前只标 ✗，无重试——可加单份重试按钮。
+
+### ✅ 阶段 5 已完成：ASR / 数据清洗（可选开关）
+
+**完成于 2026-07-24。** 验证：tsc 0 错、65/65 测试过、build 通过。时机 A（附件加载时清洗），会话级开关默认关，脏数据才开。
+
+**新增文件（1）**：
+- `src/services/cleaner.ts` —— `cleanText(text, provider, timeoutMs)`：调 streamChat 修 ASR 错误（实体归一化/数字修正/明显错别字），严格指令（只修错不改意、不确定保留原文、保持段落结构），失败返回原文（best-effort）。双语 prompt。
+
+**修改文件**：
+- `src/types/moa.ts` —— `Attachment` 加 `cleanedText?`（清洗后文本）+ `cleaned?`（标记）；`MoASessionConfig` 加 `cleanAttachments: boolean`（默认 false）。
+- `src/hooks/useMoa.ts` —— `cleanAttachment(sessionId, attachmentId)` 方法（用第一个 provider 清洗，写回 cleanedText/cleaned）；`normalizeSessionConfig`/`makeDefaultConfig` 补 cleanAttachments 默认（顺手修了 outputMode 三态归一化）；send 里 attachmentBlock 用 `cleanedText ?? text`，mapreduce 传 attachments 时 cleanedText 覆盖 text。
+- `src/App.tsx` —— handleAddFiles 里若 cleanAttachments 开启，逐个调 cleanAttachment（异步，不阻塞）。
+- `src/components/MoAConfigBar.tsx` —— Memory 旁加 Clean 开关（绑 cleanAttachments）。
+- `src/components/ChatInput.tsx` —— 附件 chip 显示「已清洗」标记。
+- `src/services/config.template.json` —— welcome session 补 cleanAttachments: false。
+- `src/i18n/en.json`+`zh.json` —— moaConfigBar.clean/cleanTooltip + chatInput.attachmentCleaned。
+
+**核心行为**：cleanAttachments 开启 → 附件加载时自动清洗（修 ASR 错别字）→ 清洗后文本存 cleanedText → 后续 extract/mapreduce/verdict 都用 cleanedText。关闭 → 用原文（不浪费调用）。chip 显示「已清洗」标记。失败 best-effort（保留原文）。
+
+**适用场景**：格兰瑟姆那种 ASR 播客转录稿（Grantham 4 种写法、208→2008、Kistone→Keystone）。干净数据（手写/PDF 导出）不需要开。
 
 ### 🟢 低优先（不在 5 阶段路线图内，按需做）
 - 会话搜索

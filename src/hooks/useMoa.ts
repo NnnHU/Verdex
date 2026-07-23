@@ -34,6 +34,7 @@ import { getMemoryConfig } from "../services/envConfig";
 import { buildHistory } from "../services/memoryBuilder";
 import { shouldMapReduce } from "../services/mapreduceStrategy";
 import { summarizeHistory } from "../services/summarizer";
+import { cleanText } from "../services/cleaner";
 import type {
   AIProvider,
   Attachment,
@@ -71,6 +72,7 @@ function makeDefaultConfig(providers: AIProvider[]): MoASessionConfig {
     memoryEnabled: true,
     outputMode: "verdict",
     extractSchemaId: null,
+    cleanAttachments: false,
   };
 }
 
@@ -121,8 +123,12 @@ function normalizeSessionConfig(
     judgePromptId: cfg.judgePromptId ?? DEFAULT_JUDGE_PROMPTS[0]?.id ?? null,
     collisionJudgePromptIds: cfg.collisionJudgePromptIds ?? [],
     memoryEnabled: cfg.memoryEnabled ?? true,
-    outputMode: cfg.outputMode === "extract" ? "extract" : "verdict",
+    outputMode:
+      cfg.outputMode === "extract" || cfg.outputMode === "mapreduce"
+        ? cfg.outputMode
+        : "verdict",
     extractSchemaId: cfg.extractSchemaId ?? null,
+    cleanAttachments: cfg.cleanAttachments ?? false,
   };
 }
 
@@ -214,6 +220,8 @@ export interface UseMoa {
   // Attachments (Stage 2 document input)
   addAttachments: (sessionId: string, attachments: Attachment[]) => void;
   removeAttachment: (sessionId: string, attachmentId: string) => void;
+  /** Stage 5: ASR-clean one attachment in-place (sets cleanedText). */
+  cleanAttachment: (sessionId: string, attachmentId: string) => Promise<void>;
 
   // Sidebar
   sidebarOpen: boolean;
@@ -645,6 +653,35 @@ export function useMoa(): UseMoa {
     []
   );
 
+  /** Stage 5: ASR-clean one attachment in-place. Uses the first provider as
+   *  the cleaning model. Best-effort; on failure marks cleaned but keeps text. */
+  const cleanAttachment = useCallback(
+    async (sessionId: string, attachmentId: string) => {
+      const session = sessions.find((s) => s.sessionId === sessionId);
+      const att = session?.attachments?.find((a) => a.id === attachmentId);
+      if (!att) return;
+      const provider = providers[0];
+      if (!provider) return;
+      const memCfg = getMemoryConfig();
+      const cleaned = await cleanText(att.text, provider, memCfg.requestTimeoutMs);
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.sessionId !== sessionId
+            ? s
+            : {
+                ...s,
+                attachments: (s.attachments ?? []).map((a) =>
+                  a.id === attachmentId
+                    ? { ...a, cleanedText: cleaned, cleaned: true }
+                    : a
+                ),
+              }
+        )
+      );
+    },
+    [sessions, providers]
+  );
+
   const currentSession =
     sessions.find((s) => s.sessionId === currentSessionId) ?? null;
 
@@ -734,7 +771,7 @@ export function useMoa(): UseMoa {
           ? atts
               .map(
                 (a) =>
-                  `【${i18n.t("chatInput.attachmentLabel", { name: a.name })}】\n${a.text}`
+                  `【${i18n.t("chatInput.attachmentLabel", { name: a.name })}】\n${a.cleanedText ?? a.text}`
               )
               .join("\n\n")
           : "";
@@ -1112,7 +1149,11 @@ export function useMoa(): UseMoa {
         judgeHistory,
         timeoutMs: memCfg.requestTimeoutMs,
         outputMode: effectiveOutputMode,
-        attachments: useMapReduce ? atts : undefined,
+        attachments: useMapReduce
+          ? atts.map((a) =>
+              a.cleanedText ? { ...a, text: a.cleanedText } : a
+            )
+          : undefined,
         signal,
       };
 
@@ -1286,6 +1327,7 @@ export function useMoa(): UseMoa {
     updateSessionConfig,
     addAttachments,
     removeAttachment,
+    cleanAttachment,
     sidebarOpen,
     toggleSidebar: () => setSidebarOpen((v) => !v),
     running,

@@ -165,6 +165,9 @@ export interface MoASessionConfig {
   /** Extract-schema template id used when outputMode === "extract".
    *  Ignored in verdict mode. Null = no schema selected. */
   extractSchemaId: string | null;
+  /** Stage 5: when true, attachments are ASR-cleaned (实体归一化/错别字修正)
+   *  on load. Default false — only enable for noisy ASR/speech-to-text data. */
+  cleanAttachments: boolean;
 }
 
 /* ------------------------------------------------------------------ *
@@ -360,6 +363,11 @@ export interface Attachment {
   source: string;
   /** True when the original file exceeded MAX_ATTACHMENT_CHARS and was cut. */
   truncated: boolean;
+  /** Stage 5: ASR-cleaned text (实体归一化/错别字修正). Used in place of
+   *  `text` when present. undefined = not cleaned (use original text). */
+  cleanedText?: string;
+  /** Stage 5: true once cleaning has been applied (success or fail). */
+  cleaned?: boolean;
 }
 
 /**

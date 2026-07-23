@@ -41,6 +41,7 @@
     "attachmentLabel": "Attachment: {{name}}",
     "attachmentChars": "{{chars}} chars",
     "attachmentTruncated": "truncated",
+    "attachmentCleaned": "cleaned",
     "attachmentRemove": "Remove",
     "readError": "Failed to read: {{message}}",
     "attachmentsHint": "Attachments are sent with every message in this session"
@@ -100,6 +101,8 @@
     "outputModeExtract": "Extract",
     "outputModeMapreduce": "Map-Reduce",
     "mapreduceHint": "Documents processed in parallel, then merged — for large multi-doc corpora",
+    "clean": "Clean",
+    "cleanTooltip": "ASR cleaning: fix speech-to-text errors (entity names, numbers, typos) in attachments. Enable only for noisy ASR data.",
     "extractSchema": "Schema",
     "extractSchemaTooltip": "Pick a custom JSON schema for extract mode. Manage schemas in Settings → Schemas.",
     "memory": "Memory",

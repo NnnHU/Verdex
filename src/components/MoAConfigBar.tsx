@@ -190,6 +190,21 @@ export function MoAConfigBar({
             {t("moaConfigBar.memory")}
           </label>
 
+          {/* Clean toggle (Stage 5 ASR cleaning) */}
+          <label
+            className="flex items-center gap-1 text-[11px] text-ink-muted"
+            title={t("moaConfigBar.cleanTooltip")}
+          >
+            <input
+              type="checkbox"
+              checked={config.cleanAttachments}
+              disabled={running}
+              onChange={(e) => onChange({ cleanAttachments: e.target.checked })}
+              className="h-3 w-3 cursor-pointer accent-[var(--accent)] disabled:opacity-50"
+            />
+            {t("moaConfigBar.clean")}
+          </label>
+
           <span
             className={
               "ml-auto text-[11px] " +

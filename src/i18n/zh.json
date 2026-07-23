@@ -41,6 +41,7 @@
     "attachmentLabel": "附件: {{name}}",
     "attachmentChars": "{{chars}} 字符",
     "attachmentTruncated": "已截断",
+    "attachmentCleaned": "已清洗",
     "attachmentRemove": "移除",
     "readError": "读取失败: {{message}}",
     "attachmentsHint": "附件会随本会话的每条消息一起发送"
@@ -100,6 +101,8 @@
     "outputModeExtract": "抽取",
     "outputModeMapreduce": "Map-Reduce",
     "mapreduceHint": "文档并行抽取后合并——用于大型多文档语料",
+    "clean": "清洗",
+    "cleanTooltip": "ASR 清洗:修正语音转文字的错误(实体名/数字/错别字)。仅对脏的 ASR 数据开启。",
     "extractSchema": "结构",
     "extractSchemaTooltip": "为抽取模式选择自定义 JSON 结构。在 设置 → 结构 里管理。",
     "memory": "记忆",

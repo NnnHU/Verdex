@@ -161,7 +161,8 @@
         "collisionJudgePromptIds": [],
         "memoryEnabled": true,
         "outputMode": "verdict",
-        "extractSchemaId": null
+        "extractSchemaId": null,
+        "cleanAttachments": false
       },
       "messages": []
     }
