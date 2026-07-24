@@ -109,6 +109,12 @@ export function HelpModal({ open, onClose }: HelpModalProps) {
             {t("help.shortcutsBody")}
           </Section>
 
+          <Section title={t("help.useCasesTitle")}>
+            <p>✅ {t("help.useCasesBest")}</p>
+            <p className="mt-1">✅ {t("help.useCasesGood")}</p>
+            <p className="mt-1 text-warning">❌ {t("help.useCasesNot")}</p>
+          </Section>
+
           <Section title={t("help.configTitle")}>
             {t("help.configBody")}
           </Section>
