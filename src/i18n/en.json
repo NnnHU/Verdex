@@ -184,6 +184,12 @@
     "summaryPrefix": "【Conversation summary so far】",
     "waitingClean": "Waiting for {{count}} attachment(s) to finish cleaning…"
   },
+  "taskStatus": {
+    "extracting": "Stage 1: extracting structured knowledge from documents…",
+    "extractedSummary": "【Extracted knowledge from documents】",
+    "analyzeQuestion": "Based on the above extracted knowledge, analyze the following",
+    "extractFailed": "Stage 1 extraction failed"
+  },
   "mapReduce": {
     "mapHeader": "📄 Document extraction (Map)",
     "reduceHeader": "📋 Merged result (Reduce)",

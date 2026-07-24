@@ -184,6 +184,12 @@
     "summaryPrefix": "【对话摘要】",
     "waitingClean": "等待 {{count}} 个附件清洗完成…"
   },
+  "taskStatus": {
+    "extracting": "阶段1：正在从文档提取结构化知识…",
+    "extractedSummary": "【从文档提取的知识精华】",
+    "analyzeQuestion": "基于以上提取的知识，分析以下问题",
+    "extractFailed": "阶段1提取失败"
+  },
   "mapReduce": {
     "mapHeader": "📄 文档抽取(Map)",
     "reduceHeader": "📋 合并结果(Reduce)",

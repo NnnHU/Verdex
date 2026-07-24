@@ -994,6 +994,61 @@ export function useMoa(): UseMoa {
       abortRef.current = new AbortController();
       const signal = abortRef.current.signal;
 
+      // --- document_analysis: 先提取(阶段1) → 再分析(阶段2+3) -----------
+      // 先用第一个 judge provider 做 Extract，把结构化精华作为 Panel 的输入。
+      let analysisPrompt = effectivePrompt;
+      let analysisOutputKind: "verdict" | "extract" =
+        config.taskType === "quick_qa" ? "verdict" : "extract";
+
+      if (config.taskType === "document_analysis" && atts.length > 0) {
+        const extractSchema =
+          config.extractSchemaId &&
+          extractSchemas.find((s) => s.id === config.extractSchemaId);
+        const extractProvider = judgeProviders[0] || panelProviders[0];
+        if (extractSchema && extractProvider) {
+          setLastError(i18n.t("taskStatus.extracting"));
+          try {
+            const { streamChat } = await import("../services/httpClient");
+            const docBlock = atts
+              .map(
+                (a) =>
+                  `【${i18n.t("chatInput.attachmentLabel", { name: a.name })}】\n${a.cleanedText ?? a.text}`
+              )
+              .join("\n\n");
+            const extractSys = extractSchema.systemPrompt.includes("{PANELS}")
+              ? extractSchema.systemPrompt.replace("{PANELS}", docBlock)
+              : `${extractSchema.systemPrompt}\n\n${docBlock}`;
+            const extractedRaw = await streamChat(
+              {
+                baseUrl: extractProvider.baseUrl,
+                apiKey: extractProvider.apiKey,
+                model: extractProvider.modelString,
+                messages: [
+                  { role: "system", content: extractSys },
+                  {
+                    role: "user",
+                    content: `${trimmed}\n\n请按指定 JSON 结构抽取并输出。`,
+                  },
+                ],
+                temperature: 0.3,
+                maxTokens: 8192,
+                timeoutMs: memCfg.requestTimeoutMs,
+                protocol: extractProvider.protocol,
+              },
+              () => undefined,
+              signal
+            );
+            // 阶段1完成：把提取结果作为"文档精华"注入 Panel 分析
+            analysisPrompt = `${i18n.t("taskStatus.extractedSummary")}\n\`\`\`json\n${extractedRaw}\n\`\`\`\n\n${i18n.t("taskStatus.analyzeQuestion")}: ${trimmed}`;
+            analysisOutputKind = "verdict"; // 阶段2+3走 Panel→Judge
+            setLastError(null);
+          } catch (e) {
+            setLastError(i18n.t("taskStatus.extractFailed") + ": " + (e as Error).message);
+            return;
+          }
+        }
+      }
+
       // --- Local mutators scoped to this (session, turn) ----------------
       const setPanel = (providerId: string, patch: Partial<PanelState>) => {
         setSessions((prev) =>
@@ -1186,21 +1241,17 @@ export function useMoa(): UseMoa {
       // - mapreduce mode + NOT triggered (auto-degraded) → "extract" (single-pass
       //   with the schema; attachments already spliced into effectivePrompt above)
       // Determine engine routing from taskType + mapreduce decision:
-      // - document_extract + useMapReduce → engine Map-Reduce branch (taskType + attachments)
-      // - document_extract (no mapreduce) / document_analysis → outputKind:extract (single-pass)
-      // - quick_qa → outputKind:verdict (Panel → Judge)
-      const effectiveOutputKind: "verdict" | "extract" =
-        config.taskType === "quick_qa" ? "verdict" : "extract";
-
+      // document_analysis 已在上面预处理（先 Extract → 精华注入 analysisPrompt）。
+      // document_extract 走 Extract/Map-Reduce；quick_qa 走 Panel→Judge。
       const request: SynthesisRequest = {
-        prompt: effectivePrompt,
+        prompt: analysisPrompt,
         panelIds: config.panelIds,
         panelRoles,
         judges: requestJudges,
         panelHistory,
         judgeHistory,
         timeoutMs: memCfg.requestTimeoutMs,
-        outputKind: effectiveOutputKind,
+        outputKind: analysisOutputKind,
         taskType: useMapReduce ? "document_extract" : config.taskType,
         attachments: useMapReduce
           ? atts.map((a) =>
