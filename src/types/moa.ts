@@ -159,11 +159,13 @@ export interface MoASessionConfig {
    *  (Stage 1a multi-turn memory). Default true. When false, every run is
    *  stateless (legacy single-turn behavior). */
   memoryEnabled: boolean;
-  /** Output mode (Stage 3): "verdict" = four-field裁决 (default/legacy),
-   *  "extract" = custom-schema JSON extraction. */
-  outputMode: "verdict" | "extract" | "mapreduce";
-  /** Extract-schema template id used when outputMode === "extract".
-   *  Ignored in verdict mode. Null = no schema selected. */
+  /** Task type (three-stage architecture): determines which pipeline runs.
+   *  - "document_extract": docs → structured JSON (schema extraction)
+   *  - "document_analysis": docs → extract → multi-model analysis → Judge
+   *  - "quick_qa": question → Panel → Judge (no docs needed) */
+  taskType: "document_extract" | "document_analysis" | "quick_qa";
+  /** Extract-schema template id used when taskType involves document extraction.
+   *  Ignored in quick_qa. Null = no schema selected. */
   extractSchemaId: string | null;
   /** Stage 5: when true, attachments are ASR-cleaned (实体归一化/错别字修正)
    *  on load. Default false — only enable for noisy ASR/speech-to-text data. */
@@ -181,9 +183,9 @@ export interface JudgeSpec {
   /** The judge's system prompt (role-specific, default four-field, or an
    *  extract-schema instruction). */
   systemPrompt: string;
-  /** Output mode (Stage 3): "verdict" (default) or "extract". */
-  outputMode?: "verdict" | "extract";
-  /** When outputMode === "extract", the required top-level keys for validation. */
+  /** Engine-internal output kind: "verdict" (four-field) or "extract" (schema JSON). */
+  outputKind?: "verdict" | "extract";
+  /** When outputKind === "extract", the required top-level keys for validation. */
   requiredKeys?: string[];
 }
 
@@ -212,12 +214,12 @@ export interface SynthesisRequest {
   maxTokens?: number;
   /** Per-call timeout in ms. Defaults to 60000. */
   timeoutMs?: number;
-  /** Request-level output mode (Stage 4). "mapreduce" routes to the Map→Reduce
-   *  branch in runMoaSynthesis (skips Panel/Judge). verdict/extract are per-
-   *  judge (JudgeSpec.outputMode) but mirrored here for the mapreduce path. */
-  outputMode?: "verdict" | "extract" | "mapreduce";
-  /** Attachments to process in mapreduce mode (Stage 4). Each becomes one Map
-   *  call. Verdict/extract modes splice attachments into `prompt` instead. */
+  /** Engine-internal output kind for Judge routing: "verdict" or "extract". */
+  outputKind?: "verdict" | "extract";
+  /** Task type for engine routing (three-stage arch). "document_extract" with
+   *  attachments routes to Map-Reduce; others go through Panel→Judge. */
+  taskType?: "document_extract" | "document_analysis" | "quick_qa";
+  /** Attachments to process in mapreduce mode. Each becomes one Map call. */
   attachments?: Attachment[];
   /** External cancel signal (Stop button). When aborted, in-flight streamChat
    *  calls reject with errors.CANCELLED and the engine skips later phases. */

@@ -468,7 +468,7 @@ export async function runSingleJudge(
   history: ChatMessage[],
   request: SynthesisRequest,
   cb: MoaCallbacks,
-  outputMode: "verdict" | "extract" = "verdict",
+  outputKind: "verdict" | "extract" = "verdict",
   requiredKeys?: string[]
 ): Promise<JudgeResult> {
   cb.onJudgeStart?.(provider.id);
@@ -477,7 +477,7 @@ export async function runSingleJudge(
   // current user turn. The user-turn instruction differs per mode.
   const buildMessages = (extra?: string): ChatMessage[] => {
     const userInstruction =
-      outputMode === "extract"
+      outputKind === "extract"
         ? zh
           ? `用户原始问题:\n${userPrompt}\n\n请按指定 JSON 结构抽取并输出。`
           : `Original user question:\n${userPrompt}\n\nExtract and output in the specified JSON structure.`
@@ -522,7 +522,7 @@ export async function runSingleJudge(
       );
 
       // verdict mode: no validation, accept first parse.
-      if (outputMode !== "extract") break;
+      if (outputKind !== "extract") break;
 
       // extract mode: validate and possibly re-prompt.
       const parsed = parseJudgeResponse(raw, "extract");
@@ -552,7 +552,7 @@ export async function runSingleJudge(
     };
   }
 
-  const response = parseJudgeResponse(raw, outputMode);
+  const response = parseJudgeResponse(raw, outputKind);
   cb.onJudgeDone?.(provider.id, response, raw);
   return {
     judgeId: provider.id,
@@ -720,7 +720,9 @@ export async function runMoaSynthesis(
 ): Promise<void> {
   // --- Stage 4: mapreduce early branch (skips Panel/Judge entirely) ----
   // Each attachment → one Map extract call (parallel) → Reduce merges them.
-  if (request.outputMode === "mapreduce" && (request.attachments?.length ?? 0) > 0) {
+  // Triggered when taskType=document_extract AND attachments present (useMapReduce
+  // decided in the hook via shouldMapReduce).
+  if (request.taskType === "document_extract" && (request.attachments?.length ?? 0) > 0) {
     await runMapReduce(request, providers, cb);
     return;
   }
@@ -842,7 +844,7 @@ export async function runMoaSynthesis(
         history,
         request,
         cb,
-        spec.outputMode ?? "verdict",
+        spec.outputKind ?? "verdict",
         spec.requiredKeys
       );
     })

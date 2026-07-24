@@ -221,7 +221,10 @@ export function MoAConfigBar({
           </span>
         </div>
 
-        {/* Row 2: Panel multi-select + (advanced) per-panel role */}
+        {/* Row 2: Panel multi-select — only for tasks that use Panel
+            (document_analysis/quick_qa) AND when multiple models available.
+            Single model + document_extract: Panel is irrelevant, hide entire row. */}
+        {config.taskType !== "document_extract" && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
             Panel
@@ -280,6 +283,7 @@ export function MoAConfigBar({
             );
           })}
         </div>
+        )}
 
         {/* Row 3: Judge selection + prompt */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -352,37 +356,40 @@ export function MoAConfigBar({
             </div>
           )}
 
-          {/* Output mode (Stage 3): verdict vs extract + schema select */}
+          {/* Task type selector (three-stage architecture) */}
           <div className="flex items-center gap-1.5">
             <span
               className="text-[11px] text-ink-muted"
-              title={t("moaConfigBar.outputModeTooltip")}
+              title={t("moaConfigBar.taskTypeTooltip")}
             >
-              {t("moaConfigBar.outputMode")}
+              {t("moaConfigBar.taskType")}
             </span>
             <select
-              value={config.outputMode}
+              value={config.taskType}
               disabled={running}
               onChange={(e) => {
-                const mode = e.target.value as "verdict" | "extract" | "mapreduce";
+                const tt = e.target.value as "document_extract" | "document_analysis" | "quick_qa";
                 onChange({
-                  outputMode: mode,
-                  // keep schema ref for extract/mapreduce; clear for verdict
+                  taskType: tt,
+                  // keep schema ref for document tasks; clear for quick_qa
                   extractSchemaId:
-                    mode === "extract" || mode === "mapreduce"
+                    tt === "document_extract" || tt === "document_analysis"
                       ? config.extractSchemaId
                       : null,
                 });
               }}
               className={selectCls}
             >
-              <option value="verdict">{t("moaConfigBar.outputModeVerdict")}</option>
-              <option value="extract">{t("moaConfigBar.outputModeExtract")}</option>
-              <option value="mapreduce">{t("moaConfigBar.outputModeMapreduce")}</option>
+              <option value="document_extract">{t("moaConfigBar.taskTypeDocumentExtract")}</option>
+              {providers.length >= 2 && (
+                <option value="document_analysis">{t("moaConfigBar.taskTypeDocumentAnalysis")}</option>
+              )}
+              <option value="quick_qa">{t("moaConfigBar.taskTypeQuickQa")}</option>
             </select>
           </div>
 
-          {(config.outputMode === "extract" || config.outputMode === "mapreduce") && (
+          {/* Schema select: shown for document tasks */}
+          {(config.taskType === "document_extract" || config.taskType === "document_analysis") && (
             <div className="flex items-center gap-1.5">
               <span
                 className="text-[11px] text-ink-muted"

@@ -70,7 +70,7 @@ function makeDefaultConfig(providers: AIProvider[]): MoASessionConfig {
     judgePromptId: DEFAULT_JUDGE_PROMPTS[0]?.id ?? null,
     collisionJudgePromptIds: [],
     memoryEnabled: true,
-    outputMode: "verdict",
+    taskType: "quick_qa",
     extractSchemaId: null,
     cleanAttachments: false,
   };
@@ -123,13 +123,25 @@ function normalizeSessionConfig(
     judgePromptId: cfg.judgePromptId ?? DEFAULT_JUDGE_PROMPTS[0]?.id ?? null,
     collisionJudgePromptIds: cfg.collisionJudgePromptIds ?? [],
     memoryEnabled: cfg.memoryEnabled ?? true,
-    outputMode:
-      cfg.outputMode === "extract" || cfg.outputMode === "mapreduce"
-        ? cfg.outputMode
-        : "verdict",
+    // Back-compat: accept legacy outputMode, map to taskType.
+    // New field takes priority; old field used as fallback.
+    taskType: resolveTaskType((cfg as { taskType?: string; outputMode?: string }).taskType, (cfg as { outputMode?: string }).outputMode),
     extractSchemaId: cfg.extractSchemaId ?? null,
     cleanAttachments: cfg.cleanAttachments ?? false,
   };
+}
+
+/** Resolve taskType from new field or legacy outputMode. */
+function resolveTaskType(
+  taskType?: string,
+  legacyOutputMode?: string
+): "document_extract" | "document_analysis" | "quick_qa" {
+  if (taskType === "document_extract" || taskType === "document_analysis" || taskType === "quick_qa") {
+    return taskType;
+  }
+  // Legacy mapping
+  if (legacyOutputMode === "extract" || legacyOutputMode === "mapreduce") return "document_extract";
+  return "quick_qa";
 }
 
 /** Drop any in-flight (non-terminal) panel/judge state when restoring. */
@@ -755,9 +767,9 @@ export function useMoa(): UseMoa {
 
       const { config } = session;
       const memCfg = getMemoryConfig();
-      // mapreduce mode needs only a Judge (the model used for Map/Reduce calls);
-      // Panel selection is irrelevant. verdict/extract need both Panel and Judge.
-      if (config.outputMode === "mapreduce") {
+      // document_extract needs only a Judge (extraction model); Panel irrelevant.
+      // document_analysis and quick_qa need both Panel and Judge.
+      if (config.taskType === "document_extract") {
         if (config.judgeIds.length === 0) return;
       } else if (config.panelIds.length === 0 || config.judgeIds.length === 0) {
         return;
@@ -798,7 +810,7 @@ export function useMoa(): UseMoa {
       // ask the strategy; otherwise never (verdict/extract splice attachments
       // into the prompt as before).
       const mrDecision =
-        config.outputMode === "mapreduce"
+        config.taskType === "document_extract"
           ? shouldMapReduce(
               atts,
               memCfg.defaultMaxContextChars,
@@ -908,11 +920,9 @@ export function useMoa(): UseMoa {
         return defaultPrompt ?? "";
       };
 
-      // Stage 3: in extract mode, override each judge's prompt with the selected
-      // schema template and tag the spec with outputMode + requiredKeys so the
-      // engine validates and re-prompts on failure. verdict mode = legacy.
+      // Schema extraction applies to document_extract and document_analysis tasks.
       const extractSchema =
-        (config.outputMode === "extract" || config.outputMode === "mapreduce") &&
+        (config.taskType === "document_extract" || config.taskType === "document_analysis") &&
         config.extractSchemaId
           ? extractSchemas.find((s) => s.id === config.extractSchemaId)
           : undefined;
@@ -922,14 +932,14 @@ export function useMoa(): UseMoa {
           return {
             providerId: jp.id,
             systemPrompt: extractSchema.systemPrompt,
-            outputMode: "extract" as const,
+            outputKind: "extract" as const,
             requiredKeys: extractSchema.requiredKeys,
           };
         }
         return {
           providerId: jp.id,
           systemPrompt: resolveJudgePrompt(idx),
-          outputMode: "verdict" as const,
+          outputKind: "verdict" as const,
         };
       });
 
@@ -1106,7 +1116,7 @@ export function useMoa(): UseMoa {
       let sessionSummary = session.summary;
       if (
         config.memoryEnabled &&
-        config.outputMode !== "mapreduce" && // mapreduce has its own corpus; skip
+        config.taskType !== "document_extract" && // document_extract (mapreduce) has its own corpus; skip
         session.messages.length > memCfg.recentTurns
       ) {
         const summaryUpTo = session.summaryUpTo ?? 0;
@@ -1175,13 +1185,12 @@ export function useMoa(): UseMoa {
       // - mapreduce mode + triggered → "mapreduce" (per-doc Map→Reduce)
       // - mapreduce mode + NOT triggered (auto-degraded) → "extract" (single-pass
       //   with the schema; attachments already spliced into effectivePrompt above)
-      // - verdict/extract → as configured
-      const effectiveOutputMode: "verdict" | "extract" | "mapreduce" =
-        useMapReduce
-          ? "mapreduce"
-          : config.outputMode === "mapreduce"
-            ? "extract" // degraded mapreduce → single-pass extract with schema
-            : config.outputMode;
+      // Determine engine routing from taskType + mapreduce decision:
+      // - document_extract + useMapReduce → engine Map-Reduce branch (taskType + attachments)
+      // - document_extract (no mapreduce) / document_analysis → outputKind:extract (single-pass)
+      // - quick_qa → outputKind:verdict (Panel → Judge)
+      const effectiveOutputKind: "verdict" | "extract" =
+        config.taskType === "quick_qa" ? "verdict" : "extract";
 
       const request: SynthesisRequest = {
         prompt: effectivePrompt,
@@ -1191,7 +1200,8 @@ export function useMoa(): UseMoa {
         panelHistory,
         judgeHistory,
         timeoutMs: memCfg.requestTimeoutMs,
-        outputMode: effectiveOutputMode,
+        outputKind: effectiveOutputKind,
+        taskType: useMapReduce ? "document_extract" : config.taskType,
         attachments: useMapReduce
           ? atts.map((a) =>
               a.cleanedText ? { ...a, text: a.cleanedText } : a

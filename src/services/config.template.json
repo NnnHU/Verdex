@@ -127,7 +127,7 @@
         "judgePromptId": "judge-default-en",
         "collisionJudgePromptIds": [],
         "memoryEnabled": true,
-        "outputMode": "verdict",
+        "taskType": "quick_qa",
         "extractSchemaId": null,
         "cleanAttachments": false
       },
