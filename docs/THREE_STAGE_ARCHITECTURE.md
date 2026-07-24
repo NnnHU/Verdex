@@ -341,6 +341,38 @@ Map-Reduce 降级为"文档提取任务在文档多时的自动优化"（复用 
 - 阶段2 的模型动态分配（根据子任务类型自动选模型）
 - 阶段间的缓存（阶段1结果缓存，改问题不重新提取）
 - 任务类型的自定义（用户自建流水线模板）
+- **Python 代码执行能力（Code Interpreter）**：类似 kimi/ChatGPT 的代码沙盒，用于精确数值计算、数据分析、可视化。详见下方"未来扩展"。
+
+### 未来扩展：Python 代码执行能力
+
+**背景**：kimi 等 Code Interpreter 用 Python 实现精确计算、数据可视化、JSON 序列化校验。Verdex 目前是纯前端 LLM 编排，无代码执行能力。
+
+**为什么现在不加**：
+1. Verdex 核心价值是多模型编排（Panel+Judge+Map-Reduce），不是代码执行——定位不同
+2. 前端加 Python 沙盒非常重：Pyodide（WASM，~10MB+）或 Tauri Rust 侧调 Python（需用户装 Python）
+3. 当前场景（文档→结构化 JSON）不需要精确计算——提取思维模型/因果链是"理解+组织"，不是"算数"
+4. 现有轻量校验（validateExtract）够用——检查 JSON 结构合法性，不需要 Python
+
+**什么时候需要加**：
+- 从文档提取财务数据后需要精确计算（增长率、比率、汇总）
+- 生成图表（思维模型关系图、数据趋势图）
+- 对提取的 JSON 做统计分析（"7 份文档里出现频率最高的模型"）
+- 需要确保 JSON 100% 语法合法（Python json.load 严格校验）
+
+**如果要加，怎么加**（两种方案）：
+
+| 方案 | 实现 | 优点 | 缺点 |
+|---|---|---|---|
+| **A. Tauri Rust 侧执行** | LLM 生成 Python 代码 → Tauri Rust subprocess 调 Python → 返回结果 | 能力完整（pandas/numpy/matplotlib 全可用）| 用户需装 Python；安全沙盒（防恶意代码）；跨平台兼容 |
+| **B. Pyodide（WASM）** | 前端加载 Pyodide → 在浏览器/WASM 里跑 Python | 无需用户装 Python；安全（沙盒隔离）| 包体大（~10MB）；加载慢；部分库不支持；性能受限 |
+
+**推荐方案 A（Tauri Rust 侧）**——能力完整，且 Verdex 已有 Tauri Rust 后端（fs/http 插件已注册），加 subprocess 调用是自然扩展。
+
+**实现要点**（方案 A）：
+1. Rust 侧加 `tauri-plugin-shell` 或自定义 command（`invoke("run_python", { code })`）
+2. 安全沙盒：限制可 import 的库、禁止文件系统/网络访问、超时 kill
+3. 前端：LLM 生成 Python 代码 → 调 Rust 执行 → 结果注入回 LLM（类似 Code Interpreter 的"生成→执行→反馈"循环）
+4. 新任务类型：`data_analysis`（提取→计算→可视化）
 
 ---
 
