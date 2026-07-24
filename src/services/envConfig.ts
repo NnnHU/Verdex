@@ -44,9 +44,6 @@ const bool = (key: string, fallback: boolean): boolean => {
  * Provider seed
  * ------------------------------------------------------------------ */
 
-/** Cache so repeated calls don't rebuild the object / regen the id. */
-let cachedProvider: AIProvider | null | undefined;
-
 /**
  * Build a Provider from VITE_VERDEX_PROVIDER_* env vars. Returns null if the
  * three required fields (base url, api key, model) are not all present.
