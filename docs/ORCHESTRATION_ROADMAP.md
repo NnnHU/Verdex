@@ -1,11 +1,11 @@
-# Verdex 编排能力融合评估（定稿）
+# Verdex 编排平台路线图（已完成）
 
-> 把 LLM Orchestration（大模型编排）能力原生融入 Verdex，使其从「单轮 MoA 综合引擎」升级为「通用多文档编排平台」的正式评估与路线图。
+> Verdex 从「单轮 MoA 综合引擎」升级为「三阶段文档智能编排平台」的路线图与架构文档。**所有功能已完成并验证通过（65/65 测试，已 push GitHub）。**
 >
-> - **形态**：Verdex 原生升级（不另起炉灶）
-> - **规模**：自适应（小文档整包 / 大文档自动切分）
-> - **输出**：自定义 schema JSON 为主；MD 仅作出口展示
-> - **文档版本**：1.0 · 2026-07-23
+> - **架构**：三阶段融合（taskType: document_extract / document_analysis / quick_qa）
+> - **核心能力**：多轮记忆 + 文档输入 + schema 抽取 + Map-Reduce + ASR 清洗 + 多模型分析
+> - **三阶段架构详见**：[`THREE_STAGE_ARCHITECTURE.md`](./THREE_STAGE_ARCHITECTURE.md)
+> - **文档版本**：2.0 · 2026-07-24
 > - **基线 commit**：`1591da9`
 
 ---
@@ -16,20 +16,19 @@
 
 | 维度 | 结论 |
 |---|---|
-| **要不要融** | **要**。Verdex 的 Panel→Judge 架构是优秀的编排骨架，缺的正是「记忆 / 校验 / 切分」三块肌肉。 |
-| **核心要加的能力** | ① 多轮上下文记忆 ② 自定义 schema 抽取 + 校验闭环 ③ 自适应 Map-Reduce 切分 |
-| **形态** | 原生升级 Verdex，不另起项目。引擎层加 Map-Reduce 分支、状态机加记忆、加 schema 校验循环。 |
-| **JSON 结构** | **选 A（自定义 schema）直做，不做 B（固定四段）过渡**；四段裁决降级为 A 的默认预置模板。 |
-| **格式策略** | 中间全程 JSON（存储/流转/AI 处理）；MD 仅在出口（导出时）从 JSON 派生，**不持久化 MD**。 |
-| **工作量** | 中大型，5 个阶段、跨 6 个文件层（类型/引擎/HTTP/状态机/UI/i18n）。详见 §5。 |
-| **风险** | 主要在引擎复杂度上升和 UI 膨胀；可控，靠分阶段交付对冲。 |
+| **状态** | ✅ **全部完成**。5 阶段路线图 + 三阶段架构重构 + 体验三件套 + document_analysis 完整链路。65/65 测试通过，已 push 到 GitHub。 |
+| **核心能力** | ① 多轮记忆（滑窗+摘要）② 文档输入 ③ 自定义 schema 抽取+校验 ④ Map-Reduce ⑤ ASR 清洗 ⑥ 三阶段融合架构（taskType）⑦ document_analysis（先提取→多模型分析→Judge综合） |
+| **架构** | taskType（document_extract/document_analysis/quick_qa）替代旧 outputMode；outputKind（verdict/extract）引擎内部解耦；单模型自动降级。详见 [`THREE_STAGE_ARCHITECTURE.md`](./THREE_STAGE_ARCHITECTURE.md)。 |
+| **JSON 结构** | 自定义 schema（路线 A），四段裁决降级为默认模板。 |
+| **格式策略** | 中间全程 JSON；复制为 MD 按钮（不持久化 MD）。 |
+| **Map-Reduce 定位** | 降级为"单次优先"的兜底（实测大模型单次远快于 Map-Reduce）。详见下文性能分析。 |
 | **推荐路径** | 5 阶段递进：1 记忆 → 2 文档输入 → 3 schema 抽取 → 4 Map-Reduce → 5 ASR 清洗。每阶段独立可用。 |
 
 ### 一句话推荐
 
-> Verdex 已是一台「多引擎跑车」，但只有一档（单轮、无记忆、无切分、无校验）。给它加变速箱（多轮记忆）+ ABS（schema 校验闭环）+ 涡轮（Map-Reduce 并行）+ 油箱盖（文档输入），它就从「单轮综合工具」变成「任意文档 → 结构化产物」的通用编排平台。改动可控，分阶段交付，每阶段都有独立可用产出。
+> Verdex 已从「单轮 MoA 综合工具」升级成**三阶段文档智能编排平台**：文档→提取结构化知识→多模型深度分析→Judge 综合裁决。支持多轮记忆、ASR 清洗、Map-Reduce、自定义 schema、单模型降级。所有功能完成并验证通过。
 
-### 进度速览（2026-07-23 更新）
+### 进度速览（2026-07-24 更新）
 
 | 阶段 | 状态 | 验证 |
 |---|---|---|
@@ -39,8 +38,12 @@
 | **3 自定义 schema 抽取** | ✅ 完成 | tsc 0 / 54 测试 / 双模式 Judge + 校验闭环 |
 | 4 自适应 Map-Reduce | ✅ 完成 | tsc 0 / 63 测试 / 形态 A 多文档 Map→Reduce |
 | 5 ASR 数据清洗（可选） | ✅ 完成 | tsc 0 / 65 测试 / 附件加载时清洗 + 会话级开关 |
+| **三阶段架构重构** | ✅ 完成 | taskType 替代 outputMode + document_analysis 完整链路 + 配置简化 |
 
-**核心 5 阶段（1a/1b/2/3/4）+ 阶段 5（ASR 清洗）全部完成**。整条路线图走完。Map-Reduce 阈值已据真实基准修正为"单次优先"（见下文性能分析）。详细进度与实现细节见 [HANDOFF.md](./HANDOFF.md) 第四节。
+**全部完成**：5 阶段路线图 + 三阶段架构重构 + 体验三件套 + document_analysis 完整链路。
+- 三阶段架构详见 [`THREE_STAGE_ARCHITECTURE.md`](./THREE_STAGE_ARCHITECTURE.md)
+- Map-Reduce 阈值已据真实基准修正为"单次优先"（见下文性能分析）
+- 详细进度与实现细节见 [HANDOFF.md](./HANDOFF.md) 第四节
 
 ---
 
