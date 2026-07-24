@@ -66,30 +66,51 @@ export function HelpModal({ open, onClose }: HelpModalProps) {
         <div className="max-h-[65vh] space-y-4 overflow-y-auto px-5 py-4">
           <Section title={t("help.whatIsTitle")}>{t("help.whatIsBody")}</Section>
 
-          <Section title={t("help.quickStartTitle")}>
-            <ol className="list-decimal space-y-1 pl-4">
-              <li>{t("help.quickStart1")}</li>
-              <li>{t("help.quickStart2")}</li>
-              <li>{t("help.quickStart3")}</li>
-              <li>{t("help.quickStart4")}</li>
-            </ol>
+          <Section title={t("help.tasksTitle")}>
+            <p className="mb-1">{t("help.tasksBody")}</p>
+            <p>• {t("help.taskExtract")}</p>
+            <p>• {t("help.taskAnalysis")}</p>
+            <p>• {t("help.taskQa")}</p>
           </Section>
 
-          <Section title={t("help.modesTitle")}>
-            <p>{t("help.modesSimple")}</p>
-            <p>{t("help.modesAdvanced")}</p>
+          <Section title={t("help.settingsTitle")}>
+            <p>• <strong>{t("help.settingsTask")}</strong></p>
+            <p>• <strong>{t("help.settingsSchema")}</strong></p>
+            <p>• <strong>{t("help.settingsStyle")}</strong></p>
+            <p>• <strong>{t("help.settingsPanel")}</strong></p>
+            <p>• <strong>{t("help.settingsJudge")}</strong></p>
+            <p>• <strong>{t("help.settingsClean")}</strong></p>
+            <p>• <strong>{t("help.settingsMemory")}</strong></p>
           </Section>
 
-          <Section title={t("help.templatesTitle")}>
-            {t("help.templatesBody")}
+          <Section title={t("help.flowTitle")}>
+            <p>• {t("help.flowExtract")}</p>
+            <p>• {t("help.flowAnalysis")}</p>
+            <p>• {t("help.flowQa")}</p>
           </Section>
 
-          <Section title={t("help.configTitle")}>
-            {t("help.configBody")}
+          <Section title={t("help.docsTitle")}>
+            {t("help.docsBody")}
+          </Section>
+
+          <Section title={t("help.providersTitle")}>
+            {t("help.providersBody")}
+          </Section>
+
+          <Section title={t("help.schemasTitle")}>
+            {t("help.schemasBody")}
+          </Section>
+
+          <Section title={t("help.copyMdTitle")}>
+            {t("help.copyMdBody")}
           </Section>
 
           <Section title={t("help.shortcutsTitle")}>
             {t("help.shortcutsBody")}
+          </Section>
+
+          <Section title={t("help.configTitle")}>
+            {t("help.configBody")}
           </Section>
 
           <Section title={t("help.securityTitle")}>
