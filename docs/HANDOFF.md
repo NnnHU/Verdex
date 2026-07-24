@@ -1,7 +1,7 @@
 # Verdex 交接文档
 
 > 写给一个**完全没有上下文的新会话**。读完这份文档，你应该能接手继续开发。
-> 最后更新：2026-07-24（全部 5 阶段 + ASR 清洗 + 体验三件套完成 + 全部实测验证通过；整条路线图走完）
+> 最后更新：2026-07-24（全部 5 阶段 + ASR 清洗 + 体验三件套 + 三阶段架构重构 + document_analysis 完整链路 + 配置简化 + 帮助文档全面更新；所有功能完成并验证通过）
 
 ---
 
@@ -336,6 +336,41 @@
 2. **清洗中无 UI 提示**：清洗开始立即设 cleaned:false → chip 显示「清洗中…」，完成设 cleaned:true → 「已清洗」。
 3. **清洗中发送用脏文本**：send 时检查 cleaned===false 的附件，有则 await 清洗完成再走（不用脏文本），+ 提示「等待清洗完成」。
 4. 验证：tsc 0 错、65/65 测试、build 通过。
+
+### ✅ 三阶段融合架构重构（2026-07-24）
+
+**背景**：原 outputMode（Verdict/Extract/Map-Reduce）混了两个维度（产出形态 vs 处理方式），配置项同时显示导致用户困扰。
+
+**核心改动**：
+- **taskType 替代 outputMode**：`document_extract` / `document_analysis` / `quick_qa`（用户面，决定走哪条链路）
+- **outputKind 解耦**：`verdict` / `extract`（引擎内部，JudgeSpec/parseJudgeResponse 用）
+- **向后兼容**：normalizeSessionConfig 映射老 outputMode → taskType（verdict→quick_qa, extract/mapreduce→document_extract）
+- **单模型降级**：只有 1 个 Provider 时隐藏 Panel/Judge/角色/综合方式（一个模型无需多模型调度）
+- **配置按执行阶段排序**：任务 → 提取结构 → 专家 → 裁决+分析风格
+- **标签直白化**：结构→提取结构、裁判提示词→分析风格、Panel→专家、Judge→裁决（i18n 中文化）
+- **互斥显示**：提取结构只在文档任务显示，分析风格只在分析/问答显示
+
+**document_analysis 完整链路（新能力）**：
+- 阶段1 Extract（V3 提取文档→结构化 JSON 精华）
+- 阶段2 Panel（多个模型各自分析提取的精华→多视角见解）
+- 阶段3 Judge（综合所有见解→四段裁决）
+- 实测验证：V3+R1 双模型，V3 先提取思维模型库 → V3/R1 各自分析 → 四段裁决。R1 的推理深度明显优于 V3。
+- 详见 `docs/THREE_STAGE_ARCHITECTURE.md`
+
+**配置项最终设计（按执行顺序）**：
+| 配置 | 何时显示 | 作用 |
+|---|---|---|
+| 任务 | 总是 | 选择做什么（提取/分析/问答） |
+| 分析风格 | 分析/问答时 | Judge 综合的风格 |
+| 提取结构 | 文档任务时 | 提取的目标 JSON 结构 |
+| 清洗 | 文档任务时 | ASR 错别字修正 |
+| 记忆 | 总是 | 多轮上下文记忆 |
+| 专家 | 分析/问答+多模型时 | 哪些模型并行分析 |
+| 裁决 | 分析/问答时 | 哪个模型做综合 |
+
+**双 Provider 支持**：`.env` 支持 `VITE_VERDEX_PROVIDER2_*`（第二模型种子），configStore 注入所有 env providers。
+
+**帮助文档全面更新**：HelpModal 重写（三阶段架构 + 配置说明 + 核心流程 + 适用场景 + 数据隐私），替代旧的 Simple/Advanced 说明。
 
 ### 🟢 低优先（不在 5 阶段路线图内，按需做）
 - 会话搜索
