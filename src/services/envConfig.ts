@@ -56,25 +56,41 @@ let cachedProvider: AIProvider | null | undefined;
  * the persisted id takes over and this seed is never read again.
  */
 export function getEnvProvider(): AIProvider | null {
-  if (cachedProvider !== undefined) return cachedProvider;
+  const all = getEnvProviders();
+  return all[0] ?? null;
+}
 
-  const baseUrl = str("VITE_VERDEX_PROVIDER_BASE_URL");
-  const apiKey = str("VITE_VERDEX_PROVIDER_API_KEY");
-  const model = str("VITE_VERDEX_PROVIDER_MODEL");
-  if (!baseUrl || !apiKey || !model) {
-    cachedProvider = null;
-    return null;
-  }
+/** Build ALL env-seeded Providers (supports a second model via VITE_VERDEX_PROVIDER2_*). */
+let cachedProviders: AIProvider[] | undefined;
+export function getEnvProviders(): AIProvider[] {
+  if (cachedProviders) return cachedProviders;
+  const result: AIProvider[] = [];
+  // Primary provider
+  const p1 = buildEnvProvider(1, "");
+  if (p1) result.push(p1);
+  // Second provider (optional, for multi-model analysis)
+  const p2 = buildEnvProvider(2, "2");
+  if (p2) result.push(p2);
+  cachedProviders = result;
+  return result;
+}
 
-  const protocolRaw = str("VITE_VERDEX_PROVIDER_PROTOCOL") ?? "openai";
+/** Build one provider from env vars with the given suffix ("" or "2"). */
+function buildEnvProvider(idx: number, suffix: string): AIProvider | null {
+  const baseUrl = str(`VITE_VERDEX_PROVIDER${suffix}_BASE_URL`);
+  const apiKey = str(`VITE_VERDEX_PROVIDER${suffix}_API_KEY`);
+  const model = str(`VITE_VERDEX_PROVIDER${suffix}_MODEL`);
+  if (!baseUrl || !apiKey || !model) return null;
+
+  const protocolRaw = str(`VITE_VERDEX_PROVIDER${suffix}_PROTOCOL`) ?? "openai";
   const protocol: ProtocolType =
     protocolRaw === "anthropic" ? "anthropic" : "openai";
 
-  const maxContextRaw = num("VITE_VERDEX_PROVIDER_MAX_CONTEXT_CHARS", 0);
+  const maxContextRaw = num(`VITE_VERDEX_PROVIDER${suffix}_MAX_CONTEXT_CHARS`, 0);
 
-  cachedProvider = {
-    id: "env-seed-provider",
-    name: str("VITE_VERDEX_PROVIDER_NAME") ?? `${model} (env)`,
+  return {
+    id: idx === 1 ? "env-seed-provider" : "env-seed-provider2",
+    name: str(`VITE_VERDEX_PROVIDER${suffix}_NAME`) ?? `${model} (env)`,
     modelString: model,
     baseUrl,
     apiKey,
@@ -82,7 +98,6 @@ export function getEnvProvider(): AIProvider | null {
     capabilities:
       maxContextRaw > 0 ? { maxContextChars: maxContextRaw } : undefined,
   };
-  return cachedProvider;
 }
 
 /* ------------------------------------------------------------------ *

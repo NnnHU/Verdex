@@ -26,7 +26,7 @@ import type {
   JudgePromptTemplate,
   RoleTemplate,
 } from "../types/moa";
-import { getEnvProvider } from "./envConfig";
+import { getEnvProviders } from "./envConfig";
 
 // Bundled template string (Vite ?raw import). Kept out of the runtime fetch
 // path — it ships in the JS bundle.
@@ -269,11 +269,11 @@ export async function loadConfig(): Promise<ConfigFile> {
   //    step 1 returns it and this branch is never reached. The seed never
   //    overwrites user edits made in the UI.
   const template = getTemplateConfig();
-  const envProvider = getEnvProvider();
-  if (envProvider) {
+  const envProviders = getEnvProviders();
+  if (envProviders.length > 0) {
     return {
       ...template,
-      providers: [envProvider, ...template.providers],
+      providers: [...envProviders, ...template.providers],
     };
   }
   return template;
