@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { JsonCardRenderer } from "./JsonCardRenderer";
+import { jsonToMarkdown } from "../services/jsonToMd";
 import type {
   JudgeStatus,
   PanelState,
@@ -64,6 +65,18 @@ export function JudgeMessage({
 }: JudgeMessageProps) {
   const { t } = useTranslation();
   const [showRaw, setShowRaw] = useState(false);
+  const [copiedMd, setCopiedMd] = useState(false);
+
+  const handleCopyMd = async (data: Record<string, unknown>) => {
+    const md = jsonToMarkdown(data);
+    try {
+      await navigator.clipboard.writeText(md);
+      setCopiedMd(true);
+      setTimeout(() => setCopiedMd(false), 2000);
+    } catch {
+      // clipboard may fail in some contexts; ignore silently
+    }
+  };
 
   // Successful panel answers, for the degraded fallback view.
   const okPanels = panels.filter(
@@ -157,8 +170,15 @@ export function JudgeMessage({
               {judgeLabel ? t("judge.headerWithLabel", { label: judgeLabel }) : t("judge.extractHeader")}
             </div>
             <JsonCardRenderer data={response.data} />
-            {raw && (
-              <div className="pt-1">
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => handleCopyMd(response.data)}
+                className="text-[11px] text-ink-muted hover:text-ink"
+              >
+                {copiedMd ? t("common.copied") : t("common.copyMd")}
+              </button>
+              {raw && (
                 <button
                   type="button"
                   onClick={() => setShowRaw((v) => !v)}
@@ -166,12 +186,12 @@ export function JudgeMessage({
                 >
                   {showRaw ? t("judge.hideRaw") : t("judge.showRaw")}
                 </button>
-                {showRaw && (
-                  <pre className="mt-1 max-h-60 overflow-auto rounded bg-surface-2 p-2 text-[11px] text-ink-muted whitespace-pre-wrap break-words">
-                    {raw}
-                  </pre>
-                )}
-              </div>
+              )}
+            </div>
+            {showRaw && raw && (
+              <pre className="mt-1 max-h-60 overflow-auto rounded bg-surface-2 p-2 text-[11px] text-ink-muted whitespace-pre-wrap break-words">
+                {raw}
+              </pre>
             )}
           </div>
         </div>

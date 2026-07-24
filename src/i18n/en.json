@@ -10,7 +10,9 @@
     "unknownError": "Unknown error",
     "newSession": "New chat",
     "rounds": "rounds",
-    "elapsed": "⏱ {{s}}s"
+    "elapsed": "⏱ {{s}}s",
+    "copyMd": "📋 Copy as MD",
+    "copied": "✓ Copied"
   },
   "app": {
     "title": "Verdex · MoA Synthesis Engine",

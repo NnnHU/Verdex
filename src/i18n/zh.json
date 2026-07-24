@@ -10,7 +10,9 @@
     "unknownError": "未知错误",
     "newSession": "新会话",
     "rounds": "轮",
-    "elapsed": "⏱ {{s}}s"
+    "elapsed": "⏱ {{s}}s",
+    "copyMd": "📋 复制为 MD",
+    "copied": "✓ 已复制"
   },
   "app": {
     "title": "Verdex · 多模型裁判综合引擎",

@@ -10,6 +10,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { JsonCardRenderer } from "./JsonCardRenderer";
+import { jsonToMarkdown } from "../services/jsonToMd";
 import type { MapOutputState, SynthesisResponse } from "../types/moa";
 
 interface MapReduceMessageProps {
@@ -32,6 +33,18 @@ export function MapReduceMessage({
 }: MapReduceMessageProps) {
   const { t } = useTranslation();
   const [showRaw, setShowRaw] = useState(false);
+  const [copiedMd, setCopiedMd] = useState(false);
+
+  const handleCopyMd = async (data: Record<string, unknown>) => {
+    const md = jsonToMarkdown(data);
+    try {
+      await navigator.clipboard.writeText(md);
+      setCopiedMd(true);
+      setTimeout(() => setCopiedMd(false), 2000);
+    } catch {
+      // ignore clipboard failures
+    }
+  };
   const anyMapping = mapOutputs.some((m) => m.status === "mapping" || m.status === "pending");
   const doneCount = mapOutputs.filter((m) => m.status === "done").length;
   const total = mapOutputs.length;
@@ -99,25 +112,33 @@ export function MapReduceMessage({
                   : t("mapReduce.reduceRunning")}
             </div>
           ) : mergedResult.kind === "extract" ? (
-            <JsonCardRenderer data={mergedResult.data} />
-          ) : null}
-
-          {raw && mergedResult && (
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={() => setShowRaw((v) => !v)}
-                className="text-[11px] text-ink-muted hover:text-ink"
-              >
-                {showRaw ? t("mapReduce.hideRaw") : t("mapReduce.showRaw")}
-              </button>
-              {showRaw && (
+            <>
+              <JsonCardRenderer data={mergedResult.data} />
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleCopyMd(mergedResult.data)}
+                  className="text-[11px] text-ink-muted hover:text-ink"
+                >
+                  {copiedMd ? t("common.copied") : t("common.copyMd")}
+                </button>
+                {raw && (
+                  <button
+                    type="button"
+                    onClick={() => setShowRaw((v) => !v)}
+                    className="text-[11px] text-ink-muted hover:text-ink"
+                  >
+                    {showRaw ? t("mapReduce.hideRaw") : t("mapReduce.showRaw")}
+                  </button>
+                )}
+              </div>
+              {showRaw && raw && (
                 <pre className="mt-1 max-h-60 overflow-auto rounded bg-surface-2 p-2 text-[11px] text-ink-muted whitespace-pre-wrap break-words">
                   {raw}
                 </pre>
               )}
-            </div>
-          )}
+            </>
+          ) : null}
         </div>
       </div>
     </div>
