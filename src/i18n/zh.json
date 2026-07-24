@@ -97,6 +97,7 @@
     "judgesCollision": "Judges(对撞,≥2)",
     "judgePrompt": "裁判提示词",
     "synthesisMode": "综合方式",
+    "analysisStyle": "分析风格",
     "default": "(默认)",
     "collisionPrompts": "各裁判提示词(按顺序对齐):",
     "taskType": "任务",

@@ -357,30 +357,6 @@ export function MoAConfigBar({
             </div>
           )}
 
-          {/* 综合方式（裁判提示词）：只在 document_analysis / quick_qa 显示，document_extract 隐藏 */}
-          {!isCollision && (config.taskType === "document_analysis" || config.taskType === "quick_qa") && (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-ink-muted">
-                {t("moaConfigBar.synthesisMode")}
-              </span>
-              <select
-                value={config.judgePromptId ?? ""}
-                disabled={running}
-                onChange={(e) =>
-                  onChange({ judgePromptId: e.target.value || null })
-                }
-                className={selectCls}
-              >
-                <option value="">{t("moaConfigBar.default")}</option>
-                {filterByLanguage(judgePrompts, lang).map((j) => (
-                  <option key={j.id} value={j.id}>
-                    {j.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
           {/* Task type selector (three-stage architecture) */}
           <div className="flex items-center gap-1.5">
             <span
@@ -396,7 +372,6 @@ export function MoAConfigBar({
                 const tt = e.target.value as "document_extract" | "document_analysis" | "quick_qa";
                 onChange({
                   taskType: tt,
-                  // keep schema ref for document tasks; clear for quick_qa
                   extractSchemaId:
                     tt === "document_extract" || tt === "document_analysis"
                       ? config.extractSchemaId
@@ -412,6 +387,29 @@ export function MoAConfigBar({
               <option value="quick_qa">{t("moaConfigBar.taskTypeQuickQa")}</option>
             </select>
           </div>
+
+          {/* 分析风格：紧跟任务后面，只在 document_analysis / quick_qa 显示 */}
+          {!isCollision && (config.taskType === "document_analysis" || config.taskType === "quick_qa") && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-ink-muted">
+                {t("moaConfigBar.analysisStyle")}
+              </span>
+              <select
+                value={config.judgePromptId ?? ""}
+                disabled={running}
+                onChange={(e) =>
+                  onChange({ judgePromptId: e.target.value || null })
+                }
+                className={selectCls}
+              >
+                {filterByLanguage(judgePrompts, lang).map((j) => (
+                  <option key={j.id} value={j.id}>
+                    {j.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {isCollision && config.judgeIds.length > 0 && (
             <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 pl-1">

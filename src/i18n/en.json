@@ -97,6 +97,7 @@
     "judgesCollision": "Judges (collision, ≥2)",
     "judgePrompt": "Judge prompt",
     "synthesisMode": "Synthesis",
+    "analysisStyle": "Analysis Style",
     "default": "(default)",
     "collisionPrompts": "Per-judge prompts (aligned in order):",
     "taskType": "Task",
