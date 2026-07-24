@@ -33,12 +33,6 @@ import { TurnTimer } from "./components/TurnTimer";
 import { ChatInput } from "./components/ChatInput";
 import { readTextFiles } from "./services/fileReader";
 
-const SAMPLE_PROMPT_KEYS = [
-  "emptyState.samplePrompt1",
-  "emptyState.samplePrompt2",
-  "emptyState.samplePrompt3",
-] as const;
-
 function EmptyState({
   hasProviders,
   onPick,
@@ -49,7 +43,6 @@ function EmptyState({
   onOpenSettings: () => void;
 }) {
   const { t } = useTranslation();
-  const samplePrompts = SAMPLE_PROMPT_KEYS.map((key) => t(key));
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-from to-brand-to text-2xl font-bold text-white shadow-lg shadow-blue-900/30">
@@ -70,18 +63,6 @@ function EmptyState({
           {t("app.goToSettings")}
         </button>
       )}
-      <div className="mt-6 grid w-full max-w-lg gap-2">
-        {samplePrompts.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => onPick(p)}
-            className="rounded-lg border border-hairline bg-surface/40 px-3.5 py-2.5 text-left text-sm text-ink transition-colors hover:border-hairline-strong hover:bg-surface hover:text-ink-strong"
-          >
-            {p}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

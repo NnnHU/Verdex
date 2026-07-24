@@ -15,7 +15,7 @@
     "copied": "✓ 已复制"
   },
   "app": {
-    "title": "Verdex · 文档智能编排平台",
+    "title": "Verdex · MoA Synthesis Engine",
     "subtitle": "加载文档，提取结构化知识——支持多轮记忆、自定义 Schema、Map-Reduce 并行处理。",
     "goToSettings": "⚙️ 先去设置里添加模型并填入 API Key",
     "loading": "正在加载配置…",
