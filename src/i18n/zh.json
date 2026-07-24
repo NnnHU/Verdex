@@ -42,6 +42,7 @@
     "attachmentChars": "{{chars}} 字符",
     "attachmentTruncated": "已截断",
     "attachmentCleaned": "已清洗",
+    "attachmentCleaning": "清洗中…",
     "attachmentRemove": "移除",
     "readError": "读取失败: {{message}}",
     "attachmentsHint": "附件会随本会话的每条消息一起发送"
@@ -178,7 +179,8 @@
     "deleteSchemaConfirm": "删除结构「{{name}}」?使用它的会话会回退到裁决模式。"
   },
   "memory": {
-    "summaryPrefix": "【对话摘要】"
+    "summaryPrefix": "【对话摘要】",
+    "waitingClean": "等待 {{count}} 个附件清洗完成…"
   },
   "mapReduce": {
     "mapHeader": "📄 文档抽取(Map)",

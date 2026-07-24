@@ -220,8 +220,9 @@ export interface UseMoa {
   // Attachments (Stage 2 document input)
   addAttachments: (sessionId: string, attachments: Attachment[]) => void;
   removeAttachment: (sessionId: string, attachmentId: string) => void;
-  /** Stage 5: ASR-clean one attachment in-place (sets cleanedText). */
-  cleanAttachment: (sessionId: string, attachmentId: string) => Promise<void>;
+  /** Stage 5: ASR-clean one attachment in-place (sets cleanedText).
+   *  Optionally pass the source text directly (avoids stale-session reads). */
+  cleanAttachment: (sessionId: string, attachmentId: string, sourceText?: string) => Promise<void>;
 
   // Sidebar
   sidebarOpen: boolean;
@@ -654,16 +655,35 @@ export function useMoa(): UseMoa {
   );
 
   /** Stage 5: ASR-clean one attachment in-place. Uses the first provider as
-   *  the cleaning model. Best-effort; on failure marks cleaned but keeps text. */
+   *  the cleaning model. Best-effort; on failure marks cleaned but keeps text.
+   *  sourceText lets the caller pass the text directly (avoids stale-session
+   *  reads when cleaning right after addAttachments, before re-render). */
   const cleanAttachment = useCallback(
-    async (sessionId: string, attachmentId: string) => {
-      const session = sessions.find((s) => s.sessionId === sessionId);
-      const att = session?.attachments?.find((a) => a.id === attachmentId);
-      if (!att) return;
+    async (sessionId: string, attachmentId: string, sourceText?: string) => {
+      // Prefer the caller-supplied text; fall back to reading from current state.
+      const textToClean =
+        sourceText ??
+        sessions.find((s) => s.sessionId === sessionId)?.attachments?.find(
+          (a) => a.id === attachmentId
+        )?.text;
+      if (!textToClean) return;
       const provider = providers[0];
       if (!provider) return;
       const memCfg = getMemoryConfig();
-      const cleaned = await cleanText(att.text, provider, memCfg.requestTimeoutMs);
+      // Mark "cleaning in progress" immediately so the UI can show it.
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.sessionId !== sessionId
+            ? s
+            : {
+                ...s,
+                attachments: (s.attachments ?? []).map((a) =>
+                  a.id === attachmentId ? { ...a, cleaned: false } : a
+                ),
+              }
+        )
+      );
+      const cleaned = await cleanText(textToClean, provider, memCfg.requestTimeoutMs);
       setSessions((prev) =>
         prev.map((s) =>
           s.sessionId !== sessionId
@@ -750,6 +770,29 @@ export function useMoa(): UseMoa {
       // document text. This keeps session.messages compact; the attachment
       // corpus already lives on session.attachments.
       const atts = session.attachments ?? [];
+
+      // Stage 5: if any attachment is mid-cleaning (cleaned === false), wait
+      // for it to finish before sending, so we never use un-cleaned text when
+      // the user expects cleaning. Re-reads latest state after waiting.
+      const pendingClean = atts.filter((a) => a.cleaned === false);
+      if (pendingClean.length > 0) {
+        setLastError(i18n.t("memory.waitingClean", { count: pendingClean.length }));
+        await Promise.all(
+          pendingClean.map((a) => cleanAttachment(sessionId, a.id, a.text))
+        );
+        setLastError(null);
+        // Re-read the session to get the cleaned texts.
+        const refreshed = sessions.find((s) => s.sessionId === sessionId);
+        if (refreshed) {
+          const refreshedAtts = refreshed.attachments ?? [];
+          // Merge any newly-cleaned texts back into our local atts snapshot.
+          for (const a of atts) {
+            const r = refreshedAtts.find((x) => x.id === a.id);
+            if (r?.cleanedText) a.cleanedText = r.cleanedText;
+            if (r?.cleaned !== undefined) a.cleaned = r.cleaned;
+          }
+        }
+      }
 
       // Stage 4: decide whether to run Map-Reduce. In mapreduce output mode we
       // ask the strategy; otherwise never (verdict/extract splice attachments

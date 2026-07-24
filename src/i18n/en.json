@@ -42,6 +42,7 @@
     "attachmentChars": "{{chars}} chars",
     "attachmentTruncated": "truncated",
     "attachmentCleaned": "cleaned",
+    "attachmentCleaning": "cleaning…",
     "attachmentRemove": "Remove",
     "readError": "Failed to read: {{message}}",
     "attachmentsHint": "Attachments are sent with every message in this session"
@@ -178,7 +179,8 @@
     "deleteSchemaConfirm": "Delete schema \"{{name}}\"? Sessions using it will fall back to verdict mode."
   },
   "memory": {
-    "summaryPrefix": "【Conversation summary so far】"
+    "summaryPrefix": "【Conversation summary so far】",
+    "waitingClean": "Waiting for {{count}} attachment(s) to finish cleaning…"
   },
   "mapReduce": {
     "mapHeader": "📄 Document extraction (Map)",

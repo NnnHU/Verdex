@@ -108,9 +108,10 @@ export default function App() {
         moa.setError(errors.join("\n"));
       }
       // Stage 5: if ASR cleaning is on, clean each newly-added attachment.
+      // Pass the source text directly to avoid stale-session reads.
       if (ok.length > 0 && session.config.cleanAttachments) {
         for (const a of ok) {
-          void moa.cleanAttachment(session.sessionId, a.id);
+          void moa.cleanAttachment(session.sessionId, a.id, a.text);
         }
       }
     },

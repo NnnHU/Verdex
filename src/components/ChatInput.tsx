@@ -105,7 +105,11 @@ export function ChatInput({
                 <span className="text-ink-faint">
                   {t("chatInput.attachmentChars", { chars: a.chars.toLocaleString() })}
                   {a.truncated ? ` · ${t("chatInput.attachmentTruncated")}` : ""}
-                  {a.cleaned ? ` · ${t("chatInput.attachmentCleaned")}` : ""}
+                  {a.cleaned === false
+                    ? ` · ${t("chatInput.attachmentCleaning")}`
+                    : a.cleaned
+                      ? ` · ${t("chatInput.attachmentCleaned")}`
+                      : ""}
                 </span>
                 {onRemoveAttachment && (
                   <button
