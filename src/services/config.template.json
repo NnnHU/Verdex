@@ -1,41 +1,8 @@
 {
-  "_comment": "Verdex default config template. On first launch, if config.json does not exist in appDataDir, this file initializes it. Built-in templates come in English (-en) and Chinese (-zh) variants; the default session references the English variant. User-added items use random UUIDs.",
+  "_comment": "Verdex default config template. On first launch, if config.json does not exist in appDataDir, this file initializes it. Providers start EMPTY — the .env seed (VITE_VERDEX_PROVIDER_*) injects the real provider. Built-in templates come in English (-en) and Chinese (-zh) variants; the default session references the English variant. User-added items use random UUIDs.",
   "language": "en",
   "theme": "dark",
-  "providers": [
-    {
-      "id": "llama-3.3-70b",
-      "name": "Llama 3.3 70B",
-      "modelString": "llama-3.3-70b-versatile",
-      "baseUrl": "https://api.groq.com/openai/v1",
-      "apiKey": "",
-      "protocol": "openai"
-    },
-    {
-      "id": "qwen-plus",
-      "name": "Qwen Plus",
-      "modelString": "qwen-plus",
-      "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-      "apiKey": "",
-      "protocol": "openai"
-    },
-    {
-      "id": "deepseek-chat",
-      "name": "DeepSeek Chat",
-      "modelString": "deepseek-chat",
-      "baseUrl": "https://api.deepseek.com/v1",
-      "apiKey": "",
-      "protocol": "openai"
-    },
-    {
-      "id": "claude-3.5-sonnet",
-      "name": "Claude 3.5 Sonnet",
-      "modelString": "claude-3-5-sonnet-20241022",
-      "baseUrl": "https://api.anthropic.com",
-      "apiKey": "",
-      "protocol": "anthropic"
-    }
-  ],
+  "providers": [],
   "roleTemplates": [
     {
       "id": "role-critical-en",
@@ -153,9 +120,9 @@
       "createdAt": 0,
       "config": {
         "mode": "simple",
-        "panelIds": ["llama-3.3-70b", "qwen-plus", "deepseek-chat"],
+        "panelIds": [],
         "panelRoles": {},
-        "judgeIds": ["claude-3.5-sonnet"],
+        "judgeIds": [],
         "judgeStrategy": "single",
         "judgePromptId": "judge-default-en",
         "collisionJudgePromptIds": [],
