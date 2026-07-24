@@ -251,7 +251,7 @@ export function MoAConfigBar({
         {config.taskType !== "document_extract" && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
-            Panel
+            {t("moaConfigBar.panel")}
           </span>
           {providers.length === 0 && (
             <span className="text-[11px] text-ink-faint">
@@ -314,7 +314,7 @@ export function MoAConfigBar({
           {!isCollision ? (
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
-                Judge
+                {t("moaConfigBar.judge")}
               </span>
               <select
                 value={config.judgeIds[0] ?? ""}

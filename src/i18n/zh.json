@@ -79,6 +79,8 @@
   },
   "moaConfigBar": {
     "simple": "简单",
+    "panel": "专家",
+    "judge": "裁决",
     "advanced": "高级",
     "strategy": "裁判策略",
     "singleJudge": "单裁判综合",

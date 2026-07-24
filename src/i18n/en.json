@@ -79,6 +79,8 @@
   },
   "moaConfigBar": {
     "simple": "Simple",
+    "panel": "Panel",
+    "judge": "Judge",
     "advanced": "Advanced",
     "strategy": "Judge strategy",
     "singleJudge": "Single judge synthesis",
