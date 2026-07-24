@@ -35,11 +35,9 @@ import { readTextFiles } from "./services/fileReader";
 
 function EmptyState({
   hasProviders,
-  onPick,
   onOpenSettings,
 }: {
   hasProviders: boolean;
-  onPick: (p: string) => void;
   onOpenSettings: () => void;
 }) {
   const { t } = useTranslation();
@@ -279,7 +277,6 @@ export default function App() {
           {isEmpty ? (
             <EmptyState
               hasProviders={moa.providers.length > 0}
-              onPick={(p) => moa.send(p)}
               onOpenSettings={() => setSettingsOpen(true)}
             />
           ) : (
