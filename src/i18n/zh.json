@@ -96,6 +96,7 @@
     "notSelected": "(未选择)",
     "judgesCollision": "Judges(对撞,≥2)",
     "judgePrompt": "裁判提示词",
+    "synthesisMode": "综合方式",
     "default": "(默认)",
     "collisionPrompts": "各裁判提示词(按顺序对齐):",
     "taskType": "任务",
@@ -107,6 +108,7 @@
     "clean": "清洗",
     "cleanTooltip": "ASR 清洗:修正语音转文字的错误(实体名/数字/错别字)。仅对脏的 ASR 数据开启。",
     "extractSchema": "结构",
+    "extractStructure": "提取结构",
     "extractSchemaTooltip": "为抽取模式选择自定义 JSON 结构。在 设置 → 结构 里管理。",
     "memory": "记忆",
     "memoryTooltip": "开启后,每个 Panel/Judge 会带上自己之前几轮的回答作为上下文(多轮记忆)。关闭则每轮独立、无记忆。"

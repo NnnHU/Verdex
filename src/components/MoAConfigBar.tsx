@@ -333,10 +333,11 @@ export function MoAConfigBar({
             </div>
           )}
 
-          {!isCollision && (
+          {/* 综合方式（裁判提示词）：只在 document_analysis / quick_qa 显示，document_extract 隐藏 */}
+          {!isCollision && (config.taskType === "document_analysis" || config.taskType === "quick_qa") && (
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] text-ink-muted">
-                {t("moaConfigBar.judgePrompt")}
+                {t("moaConfigBar.synthesisMode")}
               </span>
               <select
                 value={config.judgePromptId ?? ""}
@@ -395,7 +396,7 @@ export function MoAConfigBar({
                 className="text-[11px] text-ink-muted"
                 title={t("moaConfigBar.extractSchemaTooltip")}
               >
-                {t("moaConfigBar.extractSchema")}
+                {t("moaConfigBar.extractStructure")}
               </span>
               <select
                 value={config.extractSchemaId ?? ""}

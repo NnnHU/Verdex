@@ -96,6 +96,7 @@
     "notSelected": "(not selected)",
     "judgesCollision": "Judges (collision, ≥2)",
     "judgePrompt": "Judge prompt",
+    "synthesisMode": "Synthesis",
     "default": "(default)",
     "collisionPrompts": "Per-judge prompts (aligned in order):",
     "taskType": "Task",
@@ -107,6 +108,7 @@
     "clean": "Clean",
     "cleanTooltip": "ASR cleaning: fix speech-to-text errors (entity names, numbers, typos) in attachments. Enable only for noisy ASR data.",
     "extractSchema": "Schema",
+    "extractStructure": "Extract Structure",
     "extractSchemaTooltip": "Pick a custom JSON schema for extract mode. Manage schemas in Settings → Schemas.",
     "memory": "Memory",
     "memoryTooltip": "When on, each Panel/Judge sees its own prior turns as context (multi-turn memory). Turn off for stateless single-turn runs."
