@@ -15,8 +15,8 @@
     "copied": "✓ 已复制"
   },
   "app": {
-    "title": "Verdex · 多模型裁判综合引擎",
-    "subtitle": "让多个专家模型并行作答，再由裁判模型综合出共识、分歧、盲点与终审裁决。",
+    "title": "Verdex · 文档智能编排平台",
+    "subtitle": "加载文档，提取结构化知识——支持多轮记忆、自定义 Schema、Map-Reduce 并行处理。",
     "goToSettings": "⚙️ 先去设置里添加模型并填入 API Key",
     "loading": "正在加载配置…",
     "noSession": "还没有活动会话",
@@ -27,9 +27,9 @@
     "judgesCount": "{{count}} 裁判"
   },
   "emptyState": {
-    "samplePrompt1": "对比 React、Vue、Svelte 在大型企业应用中的取舍。",
-    "samplePrompt2": "用 200 字解释量子纠缠，并指出常见误解。",
-    "samplePrompt3": "评估「全面转向远程办公」对一个 50 人初创公司的长期影响。"
+    "samplePrompt1": "提取所附文档的思维模型、因果链和交易模型。",
+    "samplePrompt2": "用 3 个要点总结这份文档的核心观点。",
+    "samplePrompt3": "对比这几份文档的差异，列出共同点。"
   },
   "chatInput": {
     "placeholder": "向专家小组提问…  (Ctrl/⌘+Enter 发送)",

@@ -16,7 +16,7 @@
   },
   "app": {
     "title": "Verdex · MoA Synthesis Engine",
-    "subtitle": "Let multiple expert models answer in parallel, then a judge model synthesizes consensus, divergence, blind spots, and a final verdict.",
+    "subtitle": "Load documents, extract structured knowledge — with multi-turn memory, custom schemas, and Map-Reduce parallel processing.",
     "goToSettings": "⚙️ Add models and API keys in Settings first",
     "loading": "Loading config…",
     "noSession": "No active session",
@@ -27,9 +27,9 @@
     "judgesCount": "{{count}} judges"
   },
   "emptyState": {
-    "samplePrompt1": "Compare React, Vue, and Svelte for large enterprise applications.",
-    "samplePrompt2": "Explain quantum entanglement in 200 words and note common misconceptions.",
-    "samplePrompt3": "Assess the long-term impact of going fully remote for a 50-person startup."
+    "samplePrompt1": "Extract mental models, causal chains, and trading models from the attached documents.",
+    "samplePrompt2": "Summarize the core viewpoints of this document in 3 key points.",
+    "samplePrompt3": "Compare the differences across these documents and list the commonalities."
   },
   "chatInput": {
     "placeholder": "Ask the expert panel… (Ctrl/⌘+Enter to send)",
