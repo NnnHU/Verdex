@@ -221,7 +221,31 @@ export function MoAConfigBar({
           </span>
         </div>
 
-        {/* Row 2: Panel multi-select — only for tasks that use Panel
+        {/* Row 2: 提取结构 (阶段1) — only for document tasks, before Panel */}
+        {(config.taskType === "document_extract" || config.taskType === "document_analysis") && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+              {t("moaConfigBar.extractStructure")}
+            </span>
+            <select
+              value={config.extractSchemaId ?? ""}
+              disabled={running}
+              onChange={(e) =>
+                onChange({ extractSchemaId: e.target.value || null })
+              }
+              className={selectCls}
+            >
+              <option value="">{t("moaConfigBar.default")}</option>
+              {filterByLanguage(extractSchemas, lang).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Row 3: Panel multi-select — only for tasks that use Panel
             (document_analysis/quick_qa) AND when multiple models available.
             Single model + document_extract: Panel is irrelevant, hide entire row. */}
         {config.taskType !== "document_extract" && (
@@ -388,33 +412,6 @@ export function MoAConfigBar({
               <option value="quick_qa">{t("moaConfigBar.taskTypeQuickQa")}</option>
             </select>
           </div>
-
-          {/* Schema select: shown for document tasks */}
-          {(config.taskType === "document_extract" || config.taskType === "document_analysis") && (
-            <div className="flex items-center gap-1.5">
-              <span
-                className="text-[11px] text-ink-muted"
-                title={t("moaConfigBar.extractSchemaTooltip")}
-              >
-                {t("moaConfigBar.extractStructure")}
-              </span>
-              <select
-                value={config.extractSchemaId ?? ""}
-                disabled={running}
-                onChange={(e) =>
-                  onChange({ extractSchemaId: e.target.value || null })
-                }
-                className={selectCls}
-              >
-                <option value="">{t("moaConfigBar.default")}</option>
-                {filterByLanguage(extractSchemas, lang).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
 
           {isCollision && config.judgeIds.length > 0 && (
             <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 pl-1">
