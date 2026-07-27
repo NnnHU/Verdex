@@ -32,6 +32,7 @@
 | **[PITFALLS.md](./PITFALLS.md)** | ⚠️ 踩过的坑（9 个，绝对不要再踩） |
 | [../ORCHESTRATION_ROADMAP.md](../ORCHESTRATION_ROADMAP.md) | 路线图 + 性能基准 + 架构分析（已完成的路线图） |
 | [../THREE_STAGE_ARCHITECTURE.md](../THREE_STAGE_ARCHITECTURE.md) | 三阶段架构设计 + 未来扩展（Python 等） |
+| [../KNOWLEDGE_ASSET_ARCHITECTURE.md](../KNOWLEDGE_ASSET_ARCHITECTURE.md) | Knowledge Asset 架构（战略方向）+ 轻量版分支 |
 
 ## 快速接手
 

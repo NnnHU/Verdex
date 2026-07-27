@@ -2,6 +2,16 @@
 
 > 全部可选，无阻塞项。按优先级排列。
 
+## 🔴 战略方向：Knowledge Asset 架构
+
+**Verdex 从"多模型编排平台"升级为"The compiler for reusable AI knowledge"。**
+
+核心思路：把推理过程（Extract → Reasoning → Judge）沉淀成可复用的 Knowledge Asset。Skill（SKILL.md）只是其中一种导出格式，不是内部核心。
+
+- 详见 [`../KNOWLEDGE_ASSET_ARCHITECTURE.md`](../KNOWLEDGE_ASSET_ARCHITECTURE.md)
+- 实现分三步：① 最小验证（导出 SKILL.md）② Knowledge Asset 抽象 ③ 仓库化+内部复用
+- 未来分支：轻量版（单模型消费端，类比 book-to-skill 的使用端）
+
 ## 🟡 待优化（体验类）
 
 1. **mapreduce 模式 Panel 置灰** — document_analysis 时 Panel 控制更精细
