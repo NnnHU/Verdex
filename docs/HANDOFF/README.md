@@ -33,6 +33,7 @@
 | [../ORCHESTRATION_ROADMAP.md](../ORCHESTRATION_ROADMAP.md) | 路线图 + 性能基准 + 架构分析（已完成的路线图） |
 | [../THREE_STAGE_ARCHITECTURE.md](../THREE_STAGE_ARCHITECTURE.md) | 三阶段架构设计 + 未来扩展（Python 等） |
 | [../KNOWLEDGE_ASSET_ARCHITECTURE.md](../KNOWLEDGE_ASSET_ARCHITECTURE.md) | Knowledge Asset 架构（战略方向）+ 轻量版分支 |
+| [../KNOWLEDGE_VAULT_DESIGN.md](../KNOWLEDGE_VAULT_DESIGN.md) | Knowledge Vault 设计（独立仓库 + AI分类 + 引用 + 建议）|
 
 ## 快速接手
 
