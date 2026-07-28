@@ -7,12 +7,15 @@
  */
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import type { KnowledgeAsset } from "../types/moa";
+import type { AssetCategory, KnowledgeAsset } from "../types/moa";
 import { exportAsset } from "../services/exporters";
 import { JsonCardRenderer } from "./JsonCardRenderer";
 
 interface VaultViewProps {
   assets: KnowledgeAsset[];
+  categories: AssetCategory[];
+  onClassifyAsset: (assetId: string) => Promise<void>;
+  onRemoveCategory: (categoryId: string) => void;
   onRemoveAsset: (id: string) => void;
   onClose: () => void;
 }
@@ -42,10 +45,14 @@ function formatDate(ts: number): string {
 /** A single asset card with expand/collapse. */
 function AssetCard({
   asset,
+  categories,
   onRemove,
+  onClassify,
 }: {
   asset: KnowledgeAsset;
+  categories: AssetCategory[];
   onRemove: (id: string) => void;
+  onClassify?: (assetId: string) => Promise<void>;
 }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
@@ -72,6 +79,20 @@ function AssetCard({
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-sm font-semibold text-ink">{asset.name}</h3>
             <p className="mt-0.5 truncate text-[11px] text-ink-faint">{asset.description}</p>
+            {/* Category tags */}
+            {asset.categories.length > 0 && (
+              <div className="mt-0.5 flex flex-wrap gap-1">
+                {asset.categories.map((catId) => {
+                  const cat = categories.find((c) => c.id === catId);
+                  if (!cat) return null;
+                  return (
+                    <span key={catId} className="rounded bg-accent-soft/15 px-1.5 py-0.5 text-[9px] text-accent">
+                      {cat.name}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-2 text-[10px] text-ink-faint">
             <span>{asset.originTaskType.replace("_", " ")}</span>
@@ -160,6 +181,15 @@ function AssetCard({
             >
               🗑️ {t("common.delete")}
             </button>
+            {onClassify && (
+              <button
+                type="button"
+                onClick={() => onClassify(asset.id)}
+                className="text-[11px] text-ink-muted hover:text-accent"
+              >
+                🏷️ {t("vault.classify")}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -167,67 +197,132 @@ function AssetCard({
   );
 }
 
-export function VaultView({ assets, onRemoveAsset, onClose }: VaultViewProps) {
+export function VaultView({ assets, categories, onRemoveAsset, onClassifyAsset, onRemoveCategory, onClose }: VaultViewProps) {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
-    if (!searchQuery.trim()) return assets;
-    const q = searchQuery.toLowerCase();
-    return assets.filter(
-      (a) =>
-        a.name.toLowerCase().includes(q) ||
-        a.description.toLowerCase().includes(q) ||
-        a.consensus.toLowerCase().includes(q) ||
-        a.verdict.toLowerCase().includes(q) ||
-        a.sources.some((s) => s.toLowerCase().includes(q))
-    );
-  }, [assets, searchQuery]);
+    let result = assets;
+    if (filterCategoryId) {
+      result = result.filter((a) => a.categories.includes(filterCategoryId));
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (a) =>
+          a.name.toLowerCase().includes(q) ||
+          a.description.toLowerCase().includes(q) ||
+          a.consensus.toLowerCase().includes(q) ||
+          a.verdict.toLowerCase().includes(q) ||
+          a.sources.some((s) => s.toLowerCase().includes(q))
+      );
+    }
+    return result;
+  }, [assets, searchQuery, filterCategoryId]);
+
+  const uncategorized = assets.filter((a) => a.categories.length === 0);
+
+  const displayAssets = filterCategoryId === "__uncategorized__" ? uncategorized : filtered;
 
   return (
-    <div className="flex h-full flex-col bg-canvas">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold text-ink-strong">📚 {t("vault.title")}</h1>
-          <span className="text-[11px] text-ink-faint">({assets.length})</span>
-        </div>
+    <div className="flex h-full bg-canvas">
+      {/* Category sidebar */}
+      <div className="w-44 shrink-0 overflow-y-auto border-r border-hairline p-2">
         <button
           type="button"
-          onClick={onClose}
-          className="rounded-md px-2 py-1 text-ink-muted hover:bg-surface-2 hover:text-ink"
+          onClick={() => setFilterCategoryId(null)}
+          className={"mb-1 w-full rounded px-2 py-1 text-left text-[11px] transition-colors " +
+            (filterCategoryId === null ? "bg-accent-soft/15 text-accent" : "text-ink-muted hover:bg-surface-2")}
         >
-          ✕ {t("common.close")}
+          {t("vault.allCategories")} ({assets.length})
         </button>
-      </div>
-
-      {/* Search bar */}
-      <div className="border-b border-hairline px-4 py-2">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={t("vault.searchPlaceholder")}
-          className="w-full rounded-md border border-hairline-strong bg-surface/60 px-3 py-1.5 text-xs text-ink placeholder:text-ink-faint focus:border-accent/60 focus:outline-none"
-        />
-      </div>
-
-      {/* Asset list */}
-      <div className="flex-1 overflow-y-auto px-4 py-3">
-        {filtered.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <span className="text-3xl mb-2">📦</span>
-            <p className="text-sm text-ink-muted">
-              {assets.length === 0 ? t("vault.empty") : t("vault.noSearchResults")}
-            </p>
-          </div>
-        ) : (
-          <div className="mx-auto max-w-3xl space-y-2">
-            {filtered.map((asset) => (
-              <AssetCard key={asset.id} asset={asset} onRemove={onRemoveAsset} />
-            ))}
-          </div>
+        {categories.map((cat) => {
+          const count = assets.filter((a) => a.categories.includes(cat.id)).length;
+          return (
+            <div key={cat.id} className="group flex items-center">
+              <button
+                type="button"
+                onClick={() => setFilterCategoryId(cat.id)}
+                className={"flex-1 rounded px-2 py-1 text-left text-[11px] transition-colors " +
+                  (filterCategoryId === cat.id ? "bg-accent-soft/15 text-accent" : "text-ink-muted hover:bg-surface-2")}
+              >
+                {cat.name} ({count})
+                {cat.isAuto && <span className="ml-1 text-[9px] text-ink-faint">AI</span>}
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemoveCategory(cat.id)}
+                className="px-1 text-[9px] text-ink-faint opacity-0 hover:text-error group-hover:opacity-100"
+                title={t("common.delete")}
+              >
+                ×
+              </button>
+            </div>
+          );
+        })}
+        {uncategorized.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setFilterCategoryId("__uncategorized__")}
+            className={"mt-1 w-full rounded px-2 py-1 text-left text-[11px] text-ink-faint hover:bg-surface-2"}
+          >
+            {t("vault.uncategorized")} ({uncategorized.length})
+          </button>
         )}
+      </div>
+
+      {/* Main panel */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-sm font-semibold text-ink-strong">📚 {t("vault.title")}</h1>
+            <span className="text-[11px] text-ink-faint">({filtered.length})</span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-2 py-1 text-ink-muted hover:bg-surface-2 hover:text-ink"
+          >
+            ✕ {t("common.close")}
+          </button>
+        </div>
+
+        {/* Search bar */}
+        <div className="border-b border-hairline px-4 py-2">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t("vault.searchPlaceholder")}
+            className="w-full rounded-md border border-hairline-strong bg-surface/60 px-3 py-1.5 text-xs text-ink placeholder:text-ink-faint focus:border-accent/60 focus:outline-none"
+          />
+        </div>
+
+        {/* Asset list */}
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          {displayAssets.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center text-center">
+              <span className="mb-2 text-3xl">📦</span>
+              <p className="text-sm text-ink-muted">
+                {assets.length === 0 ? t("vault.empty") : t("vault.noSearchResults")}
+              </p>
+            </div>
+          ) : (
+            <div className="mx-auto max-w-3xl space-y-2">
+              {displayAssets.map((asset) => (
+                <AssetCard
+                  key={asset.id}
+                  asset={asset}
+                  categories={categories}
+                  onRemove={onRemoveAsset}
+                  onClassify={onClassifyAsset}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

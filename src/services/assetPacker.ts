@@ -45,6 +45,7 @@ export function packVerdictAsset(params: {
     originTaskType: params.taskType,
     panelModels: params.panelModels,
     judgeModel: params.judgeModel,
+    categories: [],
   };
 }
 
@@ -79,6 +80,7 @@ export function packExtractAsset(params: {
     originTaskType: params.taskType,
     panelModels: params.panelModels,
     judgeModel: params.judgeModel,
+    categories: [],
   };
 }
 

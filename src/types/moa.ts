@@ -499,6 +499,29 @@ export interface KnowledgeAsset {
   panelModels: string[];
   /** Judge model name. */
   judgeModel: string;
+
+  // --- Classification (Stage 3: Knowledge Vault) ---
+
+  /** Category ids this asset belongs to (multi-category, tag-style). */
+  categories: string[];
+  /** User-defined tags. */
+  tags?: string[];
+  /** Last time this asset was referenced by a session. */
+  lastUsedAt?: number;
+  /** How many times referenced. */
+  useCount?: number;
+}
+
+/** A category for organizing Knowledge Assets. */
+export interface AssetCategory {
+  /** Unique id. */
+  id: string;
+  /** Display name (e.g. "投资", "技术"). */
+  name: string;
+  /** Optional color for visual distinction. */
+  color?: string;
+  /** true = AI auto-created, false = user-created. */
+  isAuto: boolean;
 }
 
 /** Supported export formats for Knowledge Asset. */

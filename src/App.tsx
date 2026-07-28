@@ -161,7 +161,10 @@ export default function App() {
         <div className="flex-1 overflow-hidden">
           <VaultView
             assets={moa.knowledgeAssets}
+            categories={moa.assetCategories}
             onRemoveAsset={moa.removeKnowledgeAsset}
+            onClassifyAsset={moa.classifyKnowledgeAsset}
+            onRemoveCategory={moa.removeAssetCategory}
             onClose={() => setVaultOpen(false)}
           />
         </div>

@@ -21,6 +21,7 @@
 
 import type {
   AIProvider,
+  AssetCategory,
   ChatSession,
   ExtractSchemaTemplate,
   JudgePromptTemplate,
@@ -42,6 +43,8 @@ export interface ConfigFile {
   extractSchemas: ExtractSchemaTemplate[];
   /** Stage 4: persisted Knowledge Assets (from analysis runs). */
   knowledgeAssets: KnowledgeAsset[];
+  /** Stage 3 Vault: asset categories (AI auto + user). */
+  assetCategories: AssetCategory[];
   sessions: ChatSession[];
   currentSessionId: string | null;
   /** UI language: "en" (default) or "zh". */
@@ -319,6 +322,7 @@ function normalizeConfigShape(raw: Partial<ConfigFile>): ConfigFile {
     judgePrompts: Array.isArray(raw.judgePrompts) ? raw.judgePrompts : [],
     extractSchemas: Array.isArray(raw.extractSchemas) ? raw.extractSchemas : [],
     knowledgeAssets: Array.isArray(raw.knowledgeAssets) ? raw.knowledgeAssets : [],
+    assetCategories: Array.isArray(raw.assetCategories) ? raw.assetCategories : [],
     sessions: Array.isArray(raw.sessions) ? raw.sessions : [],
     currentSessionId: raw.currentSessionId ?? null,
     language: raw.language === "zh" ? "zh" : "en",

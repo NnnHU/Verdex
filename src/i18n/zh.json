@@ -216,7 +216,10 @@
     "structuredData": "结构化数据",
     "sources": "来源",
     "metadata": "产出方式",
-    "export": "导出"
+    "export": "导出",
+    "classify": "分类",
+    "allCategories": "全部",
+    "uncategorized": "未分类"
   },
   "assetsModal": {
     "description": "知识资产从分析结果自动保存。可在对话中导出为 Claude Skill / Markdown / JSON。",

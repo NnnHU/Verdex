@@ -36,8 +36,10 @@ import { shouldMapReduce } from "../services/mapreduceStrategy";
 import { summarizeHistory } from "../services/summarizer";
 import { cleanText } from "../services/cleaner";
 import { packFromTurn } from "../services/assetPacker";
+import { classifyAsset, resolveCategories } from "../services/assetClassifier";
 import type {
   AIProvider,
+  AssetCategory,
   Attachment,
   ChatMessage,
   ChatSession,
@@ -231,6 +233,9 @@ export interface UseMoa {
   knowledgeAssets: KnowledgeAsset[];
   addKnowledgeAsset: (asset: KnowledgeAsset) => void;
   removeKnowledgeAsset: (id: string) => void;
+  classifyKnowledgeAsset: (assetId: string) => Promise<void>;
+  assetCategories: AssetCategory[];
+  removeAssetCategory: (id: string) => void;
 
   // Session state + CRUD
   sessions: ChatSession[];
@@ -306,6 +311,7 @@ export function useMoa(): UseMoa {
     () => getTemplateConfig().extractSchemas
   );
   const [knowledgeAssets, setKnowledgeAssets] = useState<KnowledgeAsset[]>([]);
+  const [assetCategories, setAssetCategories] = useState<AssetCategory[]>([]);
   const [sessions, setSessions] = useState<ChatSession[]>(
     () => getTemplateConfig().sessions
   );
@@ -343,6 +349,7 @@ export function useMoa(): UseMoa {
       setJudgePrompts(finalized.judgePrompts);
       setExtractSchemas(finalized.extractSchemas);
       setKnowledgeAssets(finalized.knowledgeAssets);
+      setAssetCategories(finalized.assetCategories);
       setSessions(finalized.sessions);
       setCurrentSessionId(finalized.currentSessionId);
       // Apply persisted language to i18next + local state.
@@ -377,6 +384,7 @@ export function useMoa(): UseMoa {
         judgePrompts,
         extractSchemas,
         knowledgeAssets,
+        assetCategories,
         sessions: sessions.map((s) => ({
           ...s,
           messages: s.messages.map((t) => ({
@@ -404,6 +412,7 @@ export function useMoa(): UseMoa {
     judgePrompts,
     extractSchemas,
     knowledgeAssets,
+    assetCategories,
     sessions,
     currentSessionId,
     language,
@@ -605,12 +614,84 @@ export function useMoa(): UseMoa {
   /* --- Knowledge Asset CRUD (Stage 4) --- */
 
   const addKnowledgeAsset = useCallback((asset: KnowledgeAsset) => {
-    setKnowledgeAssets((prev) => [asset, ...prev]);
+    setKnowledgeAssets((prev) => [{ ...asset, categories: [] }, ...prev]);
+    // Auto-classify in background (best-effort, non-blocking).
+    queueMicrotask(() => {
+      void classifyKnowledgeAssetInner(asset.id);
+    });
   }, []);
+
+  /** Inner classifier that reads latest state (avoids closure staleness). */
+  const classifyKnowledgeAssetInner = async (assetId: string) => {
+    // Read from latest state via functional update pattern.
+    let assetToClassify: KnowledgeAsset | undefined;
+    let catsSnapshot: AssetCategory[] = [];
+    setKnowledgeAssets((prev) => {
+      assetToClassify = prev.find((a) => a.id === assetId);
+      return prev;
+    });
+    setAssetCategories((prev) => {
+      catsSnapshot = prev;
+      return prev;
+    });
+    if (!assetToClassify) return;
+    const provider = providers[0];
+    if (!provider) return;
+    const memCfg = getMemoryConfig();
+    const names = await classifyAsset(assetToClassify!, catsSnapshot, provider, memCfg.requestTimeoutMs);
+    if (names.length === 0) return;
+    const { matchedIds, newCategories } = resolveCategories(names, catsSnapshot);
+    if (newCategories.length > 0) {
+      setAssetCategories((prev) => [...prev, ...newCategories]);
+    }
+    const allIds = [...matchedIds, ...newCategories.map((c) => c.id)];
+    setKnowledgeAssets((prev) =>
+      prev.map((a) => (a.id === assetId ? { ...a, categories: allIds } : a))
+    );
+  };
 
   const removeKnowledgeAsset = useCallback((id: string) => {
     setKnowledgeAssets((prev) => prev.filter((a) => a.id !== id));
   }, []);
+
+  /* --- Asset Category CRUD + Classifier (Stage 3 Vault) --- */
+
+  const removeAssetCategory = useCallback((id: string) => {
+    setAssetCategories((prev) => prev.filter((c) => c.id !== id));
+    // Also remove the category id from all assets.
+    setKnowledgeAssets((prev) =>
+      prev.map((a) => ({
+        ...a,
+        categories: a.categories.filter((cId) => cId !== id),
+      }))
+    );
+  }, []);
+
+  /** Classify an asset using AI, then update its categories + create new ones. */
+  const classifyKnowledgeAsset = useCallback(
+    async (assetId: string) => {
+      const asset = knowledgeAssets.find((a) => a.id === assetId);
+      if (!asset) return;
+      const provider = providers[0];
+      if (!provider) return;
+      const memCfg = getMemoryConfig();
+      const names = await classifyAsset(asset, assetCategories, provider, memCfg.requestTimeoutMs);
+      if (names.length === 0) return;
+      const { matchedIds, newCategories } = resolveCategories(names, assetCategories);
+      // Add new categories.
+      if (newCategories.length > 0) {
+        setAssetCategories((prev) => [...prev, ...newCategories]);
+      }
+      // Update asset's categories.
+      const allIds = [...matchedIds, ...newCategories.map((c) => c.id)];
+      setKnowledgeAssets((prev) =>
+        prev.map((a) =>
+          a.id === assetId ? { ...a, categories: allIds } : a
+        )
+      );
+    },
+    [knowledgeAssets, assetCategories, providers]
+  );
 
   /* ----------------------- session CRUD ------------------------------ */
 
@@ -1497,6 +1578,9 @@ export function useMoa(): UseMoa {
     knowledgeAssets,
     addKnowledgeAsset,
     removeKnowledgeAsset,
+    classifyKnowledgeAsset,
+    assetCategories,
+    removeAssetCategory,
     sessions,
     currentSessionId,
     currentSession,
