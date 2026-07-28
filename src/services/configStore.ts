@@ -276,13 +276,19 @@ export async function loadConfig(): Promise<ConfigFile> {
   //    overwrites user edits made in the UI.
   const template = getTemplateConfig();
   const envProviders = getEnvProviders();
+  // Ensure knowledgeAssets/assetCategories exist (template JSON may not have them).
+  const templateWithAssets: ConfigFile = {
+    ...template,
+    knowledgeAssets: template.knowledgeAssets ?? [],
+    assetCategories: template.assetCategories ?? [],
+  };
   if (envProviders.length > 0) {
     return {
-      ...template,
-      providers: [...envProviders, ...template.providers],
+      ...templateWithAssets,
+      providers: [...envProviders, ...templateWithAssets.providers],
     };
   }
-  return template;
+  return templateWithAssets;
 }
 
 /**
