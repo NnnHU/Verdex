@@ -10,7 +10,6 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { JsonCardRenderer } from "./JsonCardRenderer";
 import { jsonToMarkdown } from "../services/jsonToMd";
-import { AssetExportButton } from "./AssetExportButton";
 import type {
   JudgeStatus,
   PanelState,
