@@ -69,8 +69,7 @@ export function AssetExportButton({
     });
     if (asset && onSaveAsset) {
       onSaveAsset(asset);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      setSaved(true); // permanent — no reset, can't save twice
     }
   };
 
