@@ -107,15 +107,9 @@ export function AssetExportButton({
     );
   }
 
-  if (saved) {
-    return (
-      <span className="text-[11px] text-success">{t("common.assetSaved")}</span>
-    );
-  }
-
   return (
     <div className="flex items-center gap-3">
-      {onSaveAsset && (
+      {onSaveAsset && !saved && (
         <button
           type="button"
           onClick={handleSave}
@@ -123,6 +117,9 @@ export function AssetExportButton({
         >
           {t("common.saveAsset")}
         </button>
+      )}
+      {saved && (
+        <span className="text-[11px] text-success">{t("common.assetSaved")}</span>
       )}
     <div className="relative">
       <button
