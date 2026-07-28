@@ -321,6 +321,8 @@ export function useMoa(): UseMoa {
   const saveTimer = useRef<number | null>(null);
   /** AbortController for the in-flight synthesis (Stop button). */
   const abortRef = useRef<AbortController | null>(null);
+  /** Guard against duplicate asset packing (React StrictMode double-invoke). */
+  const packedTurnsRef = useRef<Set<string>>(new Set());
 
   /* ----------------------- load on mount ----------------------------- */
 
@@ -1405,29 +1407,29 @@ export function useMoa(): UseMoa {
         abortRef.current = null;
 
         // Stage 4: auto-pack Knowledge Asset from this turn's result.
-        // Use setSessions functional update to read the LATEST state (avoiding
-        // stale closure — same pattern as cleanAttachment fix).
-        setSessions((prevSessions) => {
-          const latestSession = prevSessions.find((s) => s.sessionId === sessionId);
-          const latestTurn = latestSession?.messages.find((t) => t.id === turnId);
-          if (latestTurn) {
-            const asset = packFromTurn({
-              turn: latestTurn,
-              taskType: config.taskType,
-              attachments: atts,
-              panelModels: panelProviders.map((p) => p.name),
-              judgeModel: judgeProviders[0]?.name ?? "",
-            });
-            if (asset) {
-              // setKnowledgeAssets is called outside setSessions to avoid
-              // nested setState anti-pattern; use a microtask.
-              queueMicrotask(() => {
-                setKnowledgeAssets((prevAssets) => [asset!, ...prevAssets]);
+        // Guard against duplicate packing (React StrictMode double-invoke).
+        if (!packedTurnsRef.current.has(turnId)) {
+          packedTurnsRef.current.add(turnId);
+          setSessions((prevSessions) => {
+            const latestSession = prevSessions.find((s) => s.sessionId === sessionId);
+            const latestTurn = latestSession?.messages.find((t) => t.id === turnId);
+            if (latestTurn) {
+              const asset = packFromTurn({
+                turn: latestTurn,
+                taskType: config.taskType,
+                attachments: atts,
+                panelModels: panelProviders.map((p) => p.name),
+                judgeModel: judgeProviders[0]?.name ?? "",
               });
+              if (asset) {
+                queueMicrotask(() => {
+                  setKnowledgeAssets((prevAssets) => [asset!, ...prevAssets]);
+                });
+              }
             }
-          }
-          return prevSessions; // don't modify sessions, just read
-        });
+            return prevSessions;
+          });
+        }
       }
     },
     [
