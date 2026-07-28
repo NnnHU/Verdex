@@ -18,7 +18,9 @@
     "exportMarkdown": "Markdown",
     "exportJson": "JSON",
     "exportVerdexNative": "Verdex Native",
-    "assetExported": "✓ 知识资产已导出"
+    "assetExported": "✓ 知识资产已导出",
+    "saveAsset": "💾 保存到资产",
+    "assetSaved": "✓ 已保存到资产"
   },
   "app": {
     "title": "Verdex · MoA Synthesis Engine",
@@ -116,6 +118,8 @@
     "mapreduceHint": "文档并行抽取后合并——用于大型多文档语料",
     "clean": "清洗",
     "cleanTooltip": "ASR 清洗:修正语音转文字的错误(实体名/数字/错别字)。仅对脏的 ASR 数据开启。",
+    "autoSave": "自动保存",
+    "autoSaveTooltip": "开启后,每次分析结果自动保存为知识资产。关闭则需手动点「保存到资产」。",
     "extractSchema": "结构",
     "extractStructure": "提取结构",
     "extractSchemaTooltip": "为抽取模式选择自定义 JSON 结构。在 设置 → 结构 里管理。",

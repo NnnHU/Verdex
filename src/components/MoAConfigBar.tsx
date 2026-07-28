@@ -205,6 +205,21 @@ export function MoAConfigBar({
             {t("moaConfigBar.clean")}
           </label>
 
+          {/* Auto-save Asset toggle (Stage 4) */}
+          <label
+            className="flex items-center gap-1 text-[11px] text-ink-muted"
+            title={t("moaConfigBar.autoSaveTooltip")}
+          >
+            <input
+              type="checkbox"
+              checked={config.autoSaveAsset}
+              disabled={running}
+              onChange={(e) => onChange({ autoSaveAsset: e.target.checked })}
+              className="h-3 w-3 cursor-pointer accent-[var(--accent)] disabled:opacity-50"
+            />
+            {t("moaConfigBar.autoSave")}
+          </label>
+
           <span
             className={
               "ml-auto text-[11px] " +

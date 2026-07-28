@@ -324,6 +324,7 @@ export default function App() {
                           attachments={session.attachments}
                           panelModels={turn.panels.map((p) => p.label)}
                           judgeModel={turn.judges[0]?.label ?? ""}
+                          onSaveAsset={moa.addKnowledgeAsset}
                         />
                       </div>
                     );

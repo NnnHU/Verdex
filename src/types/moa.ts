@@ -170,6 +170,9 @@ export interface MoASessionConfig {
   /** Stage 5: when true, attachments are ASR-cleaned (实体归一化/错别字修正)
    *  on load. Default false — only enable for noisy ASR/speech-to-text data. */
   cleanAttachments: boolean;
+  /** Stage 4: when true, auto-save each analysis result as a Knowledge Asset.
+   *  Default false — user manually saves via the "save to assets" button. */
+  autoSaveAsset: boolean;
 }
 
 /* ------------------------------------------------------------------ *

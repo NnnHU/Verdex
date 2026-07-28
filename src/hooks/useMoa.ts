@@ -75,6 +75,7 @@ function makeDefaultConfig(providers: AIProvider[]): MoASessionConfig {
     taskType: "quick_qa",
     extractSchemaId: null,
     cleanAttachments: false,
+    autoSaveAsset: false,
   };
 }
 
@@ -130,6 +131,7 @@ function normalizeSessionConfig(
     taskType: resolveTaskType((cfg as { taskType?: string; outputMode?: string }).taskType, (cfg as { outputMode?: string }).outputMode),
     extractSchemaId: cfg.extractSchemaId ?? null,
     cleanAttachments: cfg.cleanAttachments ?? false,
+    autoSaveAsset: (cfg as { autoSaveAsset?: boolean }).autoSaveAsset ?? false,
   };
 }
 
@@ -1406,9 +1408,8 @@ export function useMoa(): UseMoa {
         setRunning(false);
         abortRef.current = null;
 
-        // Stage 4: auto-pack Knowledge Asset from this turn's result.
-        // Guard against duplicate packing (React StrictMode double-invoke).
-        if (!packedTurnsRef.current.has(turnId)) {
+        // Stage 4: auto-pack Knowledge Asset — only if autoSaveAsset is on.
+        if (config.autoSaveAsset && !packedTurnsRef.current.has(turnId)) {
           packedTurnsRef.current.add(turnId);
           setSessions((prevSessions) => {
             const latestSession = prevSessions.find((s) => s.sessionId === sessionId);

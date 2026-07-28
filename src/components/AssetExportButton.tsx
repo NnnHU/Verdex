@@ -29,6 +29,8 @@ interface AssetExportButtonProps {
   panelModels: string[];
   /** Judge model name. */
   judgeModel: string;
+  /** Optional callback to save the packed asset into the system. */
+  onSaveAsset?: (asset: KnowledgeAsset) => void;
 }
 
 /** Trigger a browser download for the given content. */
@@ -50,10 +52,27 @@ export function AssetExportButton({
   attachments,
   panelModels,
   judgeModel,
+  onSaveAsset,
 }: AssetExportButtonProps) {
   const { t } = useTranslation();
   const [showMenu, setShowMenu] = useState(false);
   const [exported, setExported] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = () => {
+    const asset = packFromTurn({
+      turn,
+      taskType,
+      attachments,
+      panelModels,
+      judgeModel,
+    });
+    if (asset && onSaveAsset) {
+      onSaveAsset(asset);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+  };
 
   const handleExport = (format: AssetExportFormat) => {
     const asset = packFromTurn({
@@ -89,7 +108,23 @@ export function AssetExportButton({
     );
   }
 
+  if (saved) {
+    return (
+      <span className="text-[11px] text-success">{t("common.assetSaved")}</span>
+    );
+  }
+
   return (
+    <div className="flex items-center gap-3">
+      {onSaveAsset && (
+        <button
+          type="button"
+          onClick={handleSave}
+          className="text-[11px] text-ink-muted hover:text-ink"
+        >
+          {t("common.saveAsset")}
+        </button>
+      )}
     <div className="relative">
       <button
         type="button"
@@ -130,6 +165,7 @@ export function AssetExportButton({
           </button>
         </div>
       )}
+    </div>
     </div>
   );
 }

@@ -18,7 +18,9 @@
     "exportMarkdown": "Markdown",
     "exportJson": "JSON",
     "exportVerdexNative": "Verdex Native",
-    "assetExported": "✓ Asset exported"
+    "assetExported": "✓ Asset exported",
+    "saveAsset": "💾 Save to Assets",
+    "assetSaved": "✓ Saved to Assets"
   },
   "app": {
     "title": "Verdex · MoA Synthesis Engine",
@@ -116,6 +118,8 @@
     "mapreduceHint": "Documents processed in parallel, then merged — for large multi-doc corpora",
     "clean": "Clean",
     "cleanTooltip": "ASR cleaning: fix speech-to-text errors (entity names, numbers, typos) in attachments. Enable only for noisy ASR data.",
+    "autoSave": "Auto-Save",
+    "autoSaveTooltip": "When on, each analysis result is auto-saved as a Knowledge Asset. Turn off to save manually via the Save button.",
     "extractSchema": "Schema",
     "extractStructure": "Extract Structure",
     "extractSchemaTooltip": "Pick a custom JSON schema for extract mode. Manage schemas in Settings → Schemas.",
