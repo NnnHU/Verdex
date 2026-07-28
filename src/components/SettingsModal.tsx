@@ -13,7 +13,6 @@ import type {
   AIProvider,
   ExtractSchemaTemplate,
   JudgePromptTemplate,
-  KnowledgeAsset,
   ProtocolType,
   RoleTemplate,
 } from "../types/moa";
@@ -47,9 +46,6 @@ interface SettingsModalProps {
   onAddSchema: () => void;
   onUpdateSchema: (id: string, patch: Partial<ExtractSchemaTemplate>) => void;
   onRemoveSchema: (id: string) => void;
-  // Knowledge Assets (Stage 4)
-  knowledgeAssets: KnowledgeAsset[];
-  onRemoveAsset: (id: string) => void;
 }
 
 const inputCls =
@@ -476,12 +472,10 @@ export function SettingsModal({
   onAddSchema,
   onUpdateSchema,
   onRemoveSchema,
-  knowledgeAssets,
-  onRemoveAsset,
 }: SettingsModalProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language.startsWith("zh") ? "zh" : "en";
-  const [activeTab, setActiveTab] = useState<"providers" | "templates" | "schemas" | "assets">(
+  const [activeTab, setActiveTab] = useState<"providers" | "templates" | "schemas">(
     "providers"
   );
   const [testResults, setTestResults] = useState<
@@ -589,18 +583,6 @@ export function SettingsModal({
               }
             >
               {t("settingsModal.tabSchemas")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("assets")}
-              className={
-                "rounded-t-md border-b-2 px-3 py-1.5 text-xs font-medium transition-colors " +
-                (activeTab === "assets"
-                  ? "border-accent text-accent"
-                  : "border-transparent text-ink-muted hover:text-ink")
-              }
-            >
-              {t("settingsModal.tabAssets")} ({knowledgeAssets.length})
             </button>
           </div>
         </div>
@@ -724,42 +706,6 @@ export function SettingsModal({
                       onUpdate={(patch) => onUpdateSchema(s.id, patch)}
                       onRemove={() => onRemoveSchema(s.id)}
                     />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === "assets" && (
-            <div className="space-y-2">
-              <span className="text-[11px] text-ink-muted">
-                {t("assetsModal.description")}
-              </span>
-              {knowledgeAssets.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-hairline-strong px-3 py-6 text-center text-[11px] text-ink-faint">
-                  {t("assetsModal.empty")}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {knowledgeAssets.map((a) => (
-                    <div key={a.id} className="rounded-lg border border-card-verdict/30 bg-card-verdict/10 p-3">
-                      <div className="mb-1 flex items-center justify-between">
-                        <span className="truncate text-sm font-medium text-ink">{a.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => onRemoveAsset(a.id)}
-                          className="rounded px-2 py-0.5 text-[11px] text-ink-muted hover:bg-error/10 hover:text-error"
-                        >
-                          {t("common.delete")}
-                        </button>
-                      </div>
-                      <p className="mb-1 text-[11px] text-ink-faint line-clamp-2">{a.description}</p>
-                      <div className="flex flex-wrap gap-2 text-[10px] text-ink-faint">
-                        <span>{t("assetsModal.taskType")}: {a.originTaskType}</span>
-                        {a.sources.length > 0 && <span>· {t("assetsModal.sources")}: {a.sources.length}</span>}
-                        <span>· {new Date(a.createdAt).toLocaleDateString()}</span>
-                      </div>
-                    </div>
                   ))}
                 </div>
               )}

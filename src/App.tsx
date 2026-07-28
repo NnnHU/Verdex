@@ -161,7 +161,6 @@ export default function App() {
         <div className="flex-1 overflow-hidden">
           <VaultView
             assets={moa.knowledgeAssets}
-            onRemoveAsset={moa.removeKnowledgeAsset}
             onClose={() => setVaultOpen(false)}
           />
         </div>
@@ -184,8 +183,6 @@ export default function App() {
           onAddSchema={() => moa.addExtractSchema()}
           onUpdateSchema={moa.updateExtractSchema}
           onRemoveSchema={moa.removeExtractSchema}
-          knowledgeAssets={moa.knowledgeAssets}
-          onRemoveAsset={moa.removeKnowledgeAsset}
         />
         <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
       </div>
@@ -260,8 +257,6 @@ export default function App() {
           onAddSchema={() => moa.addExtractSchema()}
           onUpdateSchema={moa.updateExtractSchema}
           onRemoveSchema={moa.removeExtractSchema}
-          knowledgeAssets={moa.knowledgeAssets}
-          onRemoveAsset={moa.removeKnowledgeAsset}
         />
         <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
       </div>
@@ -429,8 +424,6 @@ export default function App() {
         onAddSchema={() => moa.addExtractSchema()}
         onUpdateSchema={moa.updateExtractSchema}
         onRemoveSchema={moa.removeExtractSchema}
-        knowledgeAssets={moa.knowledgeAssets}
-        onRemoveAsset={moa.removeKnowledgeAsset}
       />
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
