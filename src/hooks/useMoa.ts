@@ -1405,21 +1405,29 @@ export function useMoa(): UseMoa {
         abortRef.current = null;
 
         // Stage 4: auto-pack Knowledge Asset from this turn's result.
-        // Re-read the latest session state to get the completed turn.
-        const latestSession = sessions.find((s) => s.sessionId === sessionId);
-        const latestTurn = latestSession?.messages.find((t) => t.id === turnId);
-        if (latestTurn) {
-          const asset = packFromTurn({
-            turn: latestTurn,
-            taskType: config.taskType,
-            attachments: atts,
-            panelModels: panelProviders.map((p) => p.name),
-            judgeModel: judgeProviders[0]?.name ?? "",
-          });
-          if (asset) {
-            setKnowledgeAssets((prev) => [asset, ...prev]);
+        // Use setSessions functional update to read the LATEST state (avoiding
+        // stale closure — same pattern as cleanAttachment fix).
+        setSessions((prevSessions) => {
+          const latestSession = prevSessions.find((s) => s.sessionId === sessionId);
+          const latestTurn = latestSession?.messages.find((t) => t.id === turnId);
+          if (latestTurn) {
+            const asset = packFromTurn({
+              turn: latestTurn,
+              taskType: config.taskType,
+              attachments: atts,
+              panelModels: panelProviders.map((p) => p.name),
+              judgeModel: judgeProviders[0]?.name ?? "",
+            });
+            if (asset) {
+              // setKnowledgeAssets is called outside setSessions to avoid
+              // nested setState anti-pattern; use a microtask.
+              queueMicrotask(() => {
+                setKnowledgeAssets((prevAssets) => [asset!, ...prevAssets]);
+              });
+            }
           }
-        }
+          return prevSessions; // don't modify sessions, just read
+        });
       }
     },
     [
