@@ -173,6 +173,10 @@ export interface MoASessionConfig {
   /** Stage 4: when true, auto-save each analysis result as a Knowledge Asset.
    *  Default false — user manually saves via the "save to assets" button. */
   autoSaveAsset: boolean;
+  /** Stage 4: Knowledge Asset ids to reference as Panel context. Multiple
+   *  assets can be selected; their content is injected into each Panel's
+   *  system prompt. Empty = no reference. */
+  referenceAssetIds: string[];
 }
 
 /* ------------------------------------------------------------------ *

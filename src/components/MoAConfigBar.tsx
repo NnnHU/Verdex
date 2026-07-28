@@ -16,6 +16,7 @@ import type {
   AIProvider,
   ExtractSchemaTemplate,
   JudgePromptTemplate,
+  KnowledgeAsset,
   MoASessionConfig,
   MoaMode,
   RoleTemplate,
@@ -26,6 +27,7 @@ interface MoAConfigBarProps {
   roleTemplates: RoleTemplate[];
   judgePrompts: JudgePromptTemplate[];
   extractSchemas: ExtractSchemaTemplate[];
+  knowledgeAssets: KnowledgeAsset[];
   config: MoASessionConfig;
   /** Patch the active session's config (shallow merge). */
   onChange: (patch: Partial<MoASessionConfig>) => void;
@@ -40,6 +42,7 @@ export function MoAConfigBar({
   roleTemplates,
   judgePrompts,
   extractSchemas,
+  knowledgeAssets,
   config,
   onChange,
   running,
@@ -219,6 +222,35 @@ export function MoAConfigBar({
             />
             {t("moaConfigBar.autoSave")}
           </label>
+
+          {/* Reference Assets (multi-select) — only show when assets exist */}
+          {knowledgeAssets.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span
+                className="text-[11px] text-ink-muted"
+                title={t("moaConfigBar.referenceAssetsTooltip")}
+              >
+                {t("moaConfigBar.referenceAssets")}
+              </span>
+              <select
+                multiple
+                value={config.referenceAssetIds}
+                disabled={running}
+                onChange={(e) => {
+                  const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
+                  onChange({ referenceAssetIds: selected });
+                }}
+                className={selectCls + " min-w-[120px]"}
+                size={Math.min(3, knowledgeAssets.length)}
+              >
+                {knowledgeAssets.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <span
             className={

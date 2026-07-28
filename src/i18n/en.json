@@ -120,6 +120,8 @@
     "cleanTooltip": "ASR cleaning: fix speech-to-text errors (entity names, numbers, typos) in attachments. Enable only for noisy ASR data.",
     "autoSave": "Auto-Save",
     "autoSaveTooltip": "When on, each analysis result is auto-saved as a Knowledge Asset. Turn off to save manually via the Save button.",
+    "referenceAssets": "Ref",
+    "referenceAssetsTooltip": "Select Knowledge Assets to inject as reference context for Panel analysis. Multi-select with Ctrl/Cmd+Click.",
     "extractSchema": "Schema",
     "extractStructure": "Extract Structure",
     "extractSchemaTooltip": "Pick a custom JSON schema for extract mode. Manage schemas in Settings → Schemas.",

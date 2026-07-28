@@ -76,6 +76,7 @@ function makeDefaultConfig(providers: AIProvider[]): MoASessionConfig {
     extractSchemaId: null,
     cleanAttachments: false,
     autoSaveAsset: false,
+    referenceAssetIds: [],
   };
 }
 
@@ -132,6 +133,9 @@ function normalizeSessionConfig(
     extractSchemaId: cfg.extractSchemaId ?? null,
     cleanAttachments: cfg.cleanAttachments ?? false,
     autoSaveAsset: (cfg as { autoSaveAsset?: boolean }).autoSaveAsset ?? false,
+    referenceAssetIds: Array.isArray((cfg as { referenceAssetIds?: string[] }).referenceAssetIds)
+      ? (cfg as { referenceAssetIds?: string[] }).referenceAssetIds!
+      : [],
   };
 }
 
@@ -919,6 +923,26 @@ export function useMoa(): UseMoa {
           if (tpl) {
             panelRoles[p.id] = tpl.systemPrompt;
             roleNameById[p.id] = tpl.name;
+          }
+        }
+      }
+
+      // --- Stage 4: inject referenced Knowledge Assets into Panel context ---
+      if (config.referenceAssetIds.length > 0) {
+        const refAssets = config.referenceAssetIds
+          .map((id) => knowledgeAssets.find((a) => a.id === id))
+          .filter((a): a is KnowledgeAsset => Boolean(a));
+        if (refAssets.length > 0) {
+          const assetCtx = refAssets
+            .map(
+              (a, i) =>
+                `【${i18n.language === "zh" ? "参考知识资产" : "Reference Asset"} ${i + 1}: ${a.name}】\n${a.description}\n${i18n.language === "zh" ? "共识" : "Consensus"}: ${a.consensus}\n${i18n.language === "zh" ? "分歧" : "Divergences"}: ${a.divergences || "—"}\n${i18n.language === "zh" ? "盲点" : "Blindspots"}: ${a.blindspots || "—"}\n${i18n.language === "zh" ? "结论" : "Verdict"}: ${a.verdict || "—"}`
+            )
+            .join("\n\n");
+          for (const p of panelProviders) {
+            panelRoles[p.id] = panelRoles[p.id]
+              ? `${assetCtx}\n\n${panelRoles[p.id]}`
+              : assetCtx;
           }
         }
       }

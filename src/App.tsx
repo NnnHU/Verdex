@@ -311,6 +311,7 @@ export default function App() {
           roleTemplates={moa.roleTemplates}
           judgePrompts={moa.judgePrompts}
           extractSchemas={moa.extractSchemas}
+          knowledgeAssets={moa.knowledgeAssets}
           config={session.config}
           running={moa.running}
           onChange={(patch) =>

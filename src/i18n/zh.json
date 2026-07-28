@@ -120,6 +120,8 @@
     "cleanTooltip": "ASR 清洗:修正语音转文字的错误(实体名/数字/错别字)。仅对脏的 ASR 数据开启。",
     "autoSave": "自动保存",
     "autoSaveTooltip": "开启后,每次分析结果自动保存为知识资产。关闭则需手动点「保存到资产」。",
+    "referenceAssets": "参考",
+    "referenceAssetsTooltip": "选择知识资产作为Panel分析的参考上下文。Ctrl/Cmd+点击多选。",
     "extractSchema": "结构",
     "extractStructure": "提取结构",
     "extractSchemaTooltip": "为抽取模式选择自定义 JSON 结构。在 设置 → 结构 里管理。",
