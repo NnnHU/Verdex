@@ -10,6 +10,7 @@
  * template libraries. All selection writes through `onChange` into the
  * session's MoASessionConfig (shallow-merged by the hook).
  */
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { filterByLanguage } from "../services/templateFilter";
 import type {
@@ -49,6 +50,7 @@ export function MoAConfigBar({
 }: MoAConfigBarProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language.startsWith("zh") ? "zh" : "en";
+  const [showRefAssets, setShowRefAssets] = useState(false);
   const isAdvanced = config.mode === "advanced";
   const isCollision =
     isAdvanced && config.judgeStrategy === "collision";
@@ -223,32 +225,52 @@ export function MoAConfigBar({
             {t("moaConfigBar.autoSave")}
           </label>
 
-          {/* Reference Assets (multi-select) — only show when assets exist */}
+          {/* Reference Assets (popover multi-select) — only show when assets exist */}
           {knowledgeAssets.length > 0 && (
-            <div className="flex items-center gap-1.5">
-              <span
-                className="text-[11px] text-ink-muted"
+            <div className="relative">
+              <button
+                type="button"
+                disabled={running}
+                onClick={() => setShowRefAssets((v) => !v)}
+                className={selectCls}
                 title={t("moaConfigBar.referenceAssetsTooltip")}
               >
                 {t("moaConfigBar.referenceAssets")}
-              </span>
-              <select
-                multiple
-                value={config.referenceAssetIds}
-                disabled={running}
-                onChange={(e) => {
-                  const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
-                  onChange({ referenceAssetIds: selected });
-                }}
-                className={selectCls + " min-w-[120px]"}
-                size={Math.min(3, knowledgeAssets.length)}
-              >
-                {knowledgeAssets.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
+                {config.referenceAssetIds.length > 0 && ` (${config.referenceAssetIds.length})`}
+              </button>
+              {showRefAssets && (
+                <div className="absolute left-0 top-full z-20 mt-1 max-h-60 w-64 overflow-y-auto rounded-md border border-hairline-strong bg-canvas shadow-lg">
+                  {knowledgeAssets.map((a) => {
+                    const checked = config.referenceAssetIds.includes(a.id);
+                    return (
+                      <label
+                        key={a.id}
+                        className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-surface-2"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const next = checked
+                              ? config.referenceAssetIds.filter((id) => id !== a.id)
+                              : [...config.referenceAssetIds, a.id];
+                            onChange({ referenceAssetIds: next });
+                          }}
+                          className="h-3 w-3 accent-[var(--accent)]"
+                        />
+                        <span className="truncate text-[11px] text-ink">{a.name}</span>
+                      </label>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => setShowRefAssets(false)}
+                    className="block w-full border-t border-hairline px-3 py-1.5 text-center text-[11px] text-ink-muted hover:bg-surface-2"
+                  >
+                    {t("common.done")}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
