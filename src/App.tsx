@@ -31,6 +31,7 @@ import { JudgeMessage } from "./components/JudgeMessage";
 import { MapReduceMessage } from "./components/MapReduceMessage";
 import { TurnTimer } from "./components/TurnTimer";
 import { AssetExportButton } from "./components/AssetExportButton";
+import { VaultView } from "./components/VaultView";
 import { ChatInput } from "./components/ChatInput";
 import { readTextFiles } from "./services/fileReader";
 
@@ -72,6 +73,7 @@ export default function App() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [vaultOpen, setVaultOpen] = useState(false);
 
   const session = moa.currentSession;
   const messages = session?.messages ?? [];
@@ -134,6 +136,62 @@ export default function App() {
     );
   }
 
+  // Knowledge Vault view (independent full-screen view)
+  if (vaultOpen) {
+    return (
+      <div className="flex h-screen w-screen overflow-hidden bg-canvas">
+        <Sidebar
+          open={moa.sidebarOpen}
+          sessions={moa.sessions}
+          currentSessionId={moa.currentSessionId}
+          onToggle={moa.toggleSidebar}
+          onNewSession={() => { setVaultOpen(false); moa.newSession(); }}
+          onSelectSession={(id) => { setVaultOpen(false); moa.selectSession(id); }}
+          onRenameSession={moa.renameSession}
+          onRemoveSession={moa.removeSession}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenHelp={() => setHelpOpen(true)}
+          onOpenVault={() => setVaultOpen(false)}
+          assetCount={moa.knowledgeAssets.length}
+          language={moa.language}
+          onLanguageChange={moa.setLanguage}
+          theme={moa.theme}
+          onThemeChange={moa.setTheme}
+        />
+        <div className="flex-1 overflow-hidden">
+          <VaultView
+            assets={moa.knowledgeAssets}
+            onRemoveAsset={moa.removeKnowledgeAsset}
+            onClose={() => setVaultOpen(false)}
+          />
+        </div>
+        <SettingsModal
+          open={settingsOpen}
+          providers={moa.providers}
+          roleTemplates={moa.roleTemplates}
+          judgePrompts={moa.judgePrompts}
+          extractSchemas={moa.extractSchemas}
+          onClose={() => setSettingsOpen(false)}
+          onAddProvider={() => moa.addProvider()}
+          onUpdateProvider={moa.updateProvider}
+          onRemoveProvider={moa.removeProvider}
+          onAddRole={() => moa.addRoleTemplate()}
+          onUpdateRole={moa.updateRoleTemplate}
+          onRemoveRole={moa.removeRoleTemplate}
+          onAddJudgePrompt={() => moa.addJudgePrompt()}
+          onUpdateJudgePrompt={moa.updateJudgePrompt}
+          onRemoveJudgePrompt={moa.removeJudgePrompt}
+          onAddSchema={() => moa.addExtractSchema()}
+          onUpdateSchema={moa.updateExtractSchema}
+          onRemoveSchema={moa.removeExtractSchema}
+          knowledgeAssets={moa.knowledgeAssets}
+          onRemoveAsset={moa.removeKnowledgeAsset}
+        />
+        <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+      </div>
+    );
+  }
+
   const isEmpty = messages.length === 0;
 
   // Derive a short judge summary for the header from the judges array.
@@ -162,6 +220,8 @@ export default function App() {
           onRemoveSession={moa.removeSession}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenHelp={() => setHelpOpen(true)}
+          onOpenVault={() => setVaultOpen(true)}
+          assetCount={moa.knowledgeAssets.length}
           language={moa.language}
           onLanguageChange={moa.setLanguage}
           theme={moa.theme}
@@ -221,6 +281,8 @@ export default function App() {
         onRemoveSession={moa.removeSession}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenHelp={() => setHelpOpen(true)}
+          onOpenVault={() => setVaultOpen(true)}
+          assetCount={moa.knowledgeAssets.length}
         language={moa.language}
         onLanguageChange={moa.setLanguage}
         theme={moa.theme}

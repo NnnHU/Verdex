@@ -24,6 +24,8 @@ interface SidebarProps {
   onRemoveSession: (id: string) => void;
   onOpenSettings: () => void;
   onOpenHelp: () => void;
+  onOpenVault: () => void;
+  assetCount: number;
   language: "en" | "zh";
   onLanguageChange: (lng: "en" | "zh") => void;
   theme: "dark" | "light" | "soft";
@@ -150,6 +152,8 @@ export function Sidebar({
   onRemoveSession,
   onOpenSettings,
   onOpenHelp,
+  onOpenVault,
+  assetCount,
   language,
   onLanguageChange,
   theme,
@@ -219,8 +223,15 @@ export function Sidebar({
             ))}
           </div>
 
-          {/* Settings + Help */}
+          {/* Knowledge Vault + Settings + Help */}
           <div className="space-y-1.5 border-t border-hairline p-3">
+            <button
+              type="button"
+              onClick={onOpenVault}
+              className="w-full rounded-md border border-hairline-strong bg-surface/60 px-3 py-2 text-xs text-ink hover:border-accent/50 hover:bg-accent/15 hover:text-accent"
+            >
+              📚 {t("sidebar.vault")} {assetCount > 0 && `(${assetCount})`}
+            </button>
             <button
               type="button"
               onClick={onOpenSettings}

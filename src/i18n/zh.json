@@ -206,6 +206,16 @@
     "analyzeQuestion": "基于以上提取的知识，分析以下问题",
     "extractFailed": "阶段1提取失败"
   },
+  "vault": {
+    "title": "知识仓库",
+    "searchPlaceholder": "按名称、内容或来源搜索...",
+    "empty": "还没有知识资产。运行分析并保存结果来积累你的仓库。",
+    "noSearchResults": "没有匹配的资产。",
+    "structuredData": "结构化数据",
+    "sources": "来源",
+    "metadata": "产出方式",
+    "export": "导出"
+  },
   "assetsModal": {
     "description": "知识资产从分析结果自动保存。可在对话中导出为 Claude Skill / Markdown / JSON。",
     "empty": "还没有知识资产。运行分析后，知识资产会自动保存到这里。",
@@ -238,7 +248,8 @@
     "expand": "展开侧栏",
     "templates": "🎭 提示词模板",
     "settings": "⚙️ 模型设置",
-    "help": "❓ 帮助"
+    "help": "❓ 帮助",
+    "vault": "知识仓库"
   },
   "errors": {
     "PROMPT_TOO_LONG": "单次输入过长({{len}} 字符,上限 {{limit}}),已触发熔断保护。请缩短输入或拆分问题。",
