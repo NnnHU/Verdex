@@ -441,3 +441,76 @@ export interface MoaCallbacks {
   /** Stage 4 mapreduce: Reduce merge failed. */
   onReduceError?: (message: string) => void;
 }
+
+/* ------------------------------------------------------------------ *
+ * 8. Knowledge Asset (Stage 4 — Knowledge Packaging)
+ * ------------------------------------------------------------------ */
+
+/**
+ * A Knowledge Asset is the persistent, reusable output of Verdex's three-stage
+ * pipeline. It captures the full reasoning process — evidence, multi-model
+ * consensus, divergences, blind spots — in a format-independent internal
+ * structure that can be exported to various targets (Claude Skill, Markdown,
+ * JSON, etc.).
+ *
+ * Design principle: the internal format is NOT tied to any external standard
+ * (SKILL.md, MCP, etc.). Exporters translate KnowledgeAsset → target format.
+ */
+export interface KnowledgeAsset {
+  /** Unique id (crypto.randomUUID). */
+  id: string;
+  /** Human-readable name (e.g. "格兰瑟姆投资模型分析"). */
+  name: string;
+  /** AI-facing trigger description — tells host AI WHEN to use this asset.
+   *  For Claude Skill export, this becomes the SKILL.md frontmatter description. */
+  description: string;
+  /** The original user question that produced this asset. */
+  sourceQuery: string;
+  /** When the asset was created (ms epoch). */
+  createdAt: number;
+
+  // --- Content (the actual knowledge) ---
+
+  /** Multi-model consensus — points all models agreed on. */
+  consensus: string;
+  /** Meaningful divergences preserved — where models disagreed. Verdex-unique. */
+  divergences: string;
+  /** Blind spots only one or few models raised. Verdex-unique. */
+  blindspots: string;
+  /** The Judge's final verdict / synthesized conclusion. */
+  verdict: string;
+  /** Structured JSON data (from extract mode), if available. */
+  structuredData?: Record<string, unknown>;
+
+  // --- Provenance ---
+
+  /** Source documents referenced (filenames, for traceability). */
+  sources: string[];
+  /** The task type that produced this asset. */
+  originTaskType: "document_extract" | "document_analysis" | "quick_qa";
+  /** Panel model names that participated. */
+  panelModels: string[];
+  /** Judge model name. */
+  judgeModel: string;
+}
+
+/** Supported export formats for Knowledge Asset. */
+export type AssetExportFormat =
+  | "claude-skill"
+  | "markdown"
+  | "json"
+  | "verdex-native";
+
+/** Result of exporting an asset to a specific format. */
+export interface AssetExportResult {
+  /** The format that was exported. */
+  format: AssetExportFormat;
+  /** The full text content of the exported file(s). For single-file formats
+   *  (markdown/json/verdex-native), this is the file content. For claude-skill,
+   *  this is the SKILL.md content (chapters are in `extraFiles`). */
+  content: string;
+  /** Suggested filename (without path). */
+  filename: string;
+  /** Additional files for multi-file formats (e.g. claude-skill chapters/). */
+  extraFiles?: { filename: string; content: string }[];
+}

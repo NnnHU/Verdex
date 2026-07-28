@@ -30,6 +30,7 @@ import { PanelCollapseGroup } from "./components/PanelCollapseGroup";
 import { JudgeMessage } from "./components/JudgeMessage";
 import { MapReduceMessage } from "./components/MapReduceMessage";
 import { TurnTimer } from "./components/TurnTimer";
+import { AssetExportButton } from "./components/AssetExportButton";
 import { ChatInput } from "./components/ChatInput";
 import { readTextFiles } from "./services/fileReader";
 
@@ -309,6 +310,22 @@ export default function App() {
                     />
                   ))
                   )}
+                  {/* Knowledge Asset export — only show when turn has a result */}
+                  {(() => {
+                    const hasResult = turn.mergedResult || turn.judges.some((j) => j.response);
+                    if (!hasResult) return null;
+                    return (
+                      <div className="px-4 py-1">
+                        <AssetExportButton
+                          turn={turn}
+                          taskType={session.config.taskType}
+                          attachments={session.attachments}
+                          panelModels={turn.panels.map((p) => p.label)}
+                          judgeModel={turn.judges[0]?.label ?? ""}
+                        />
+                      </div>
+                    );
+                  })()}
                 </div>
                 );
               })}

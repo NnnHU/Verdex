@@ -12,7 +12,13 @@
     "rounds": "rounds",
     "elapsed": "⏱ {{s}}s",
     "copyMd": "📋 Copy as MD",
-    "copied": "✓ Copied"
+    "copied": "✓ Copied",
+    "exportAsset": "📦 Export Asset",
+    "exportClaudeSkill": "Claude Skill",
+    "exportMarkdown": "Markdown",
+    "exportJson": "JSON",
+    "exportVerdexNative": "Verdex Native",
+    "assetExported": "✓ Asset exported"
   },
   "app": {
     "title": "Verdex · MoA Synthesis Engine",
