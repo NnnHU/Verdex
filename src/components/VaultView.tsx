@@ -49,14 +49,12 @@ function AssetCard({
   asset,
   categories,
   onRemove,
-  onClassify,
   onUpdateCategories,
   onAddCategory,
 }: {
   asset: KnowledgeAsset;
   categories: AssetCategory[];
   onRemove: (id: string) => void;
-  onClassify?: (assetId: string) => Promise<void>;
   onUpdateCategories?: (assetId: string, categoryIds: string[]) => void;
   onAddCategory?: (name: string) => string;
 }) {
@@ -420,7 +418,6 @@ export function VaultView({ assets, categories, onRemoveAsset, onClassifyAsset, 
                   asset={asset}
                   categories={categories}
                   onRemove={onRemoveAsset}
-                  onClassify={onClassifyAsset}
                   onUpdateCategories={onUpdateAssetCategories}
                   onAddCategory={onAddCategory}
                 />
