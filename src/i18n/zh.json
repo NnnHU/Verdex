@@ -127,6 +127,7 @@
     "tabProviders": "📦 模型供应商",
     "tabTemplates": "🎭 提示词模板",
     "tabSchemas": "📋 结构",
+    "tabAssets": "📦 知识资产",
     "description": "管理全局 OpenAI 兼容端点。每个模型都可被任意会话选为 Panel 或 Judge。",
     "closeAria": "关闭",
     "emptyState": "暂无模型。点击下方「添加模型」创建第一个供应商。",
@@ -200,6 +201,12 @@
     "extractedSummary": "【从文档提取的知识精华】",
     "analyzeQuestion": "基于以上提取的知识，分析以下问题",
     "extractFailed": "阶段1提取失败"
+  },
+  "assetsModal": {
+    "description": "知识资产从分析结果自动保存。可在对话中导出为 Claude Skill / Markdown / JSON。",
+    "empty": "还没有知识资产。运行分析后，知识资产会自动保存到这里。",
+    "taskType": "任务",
+    "sources": "来源"
   },
   "mapReduce": {
     "mapHeader": "📄 文档抽取(Map)",

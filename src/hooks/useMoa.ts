@@ -35,6 +35,7 @@ import { buildHistory } from "../services/memoryBuilder";
 import { shouldMapReduce } from "../services/mapreduceStrategy";
 import { summarizeHistory } from "../services/summarizer";
 import { cleanText } from "../services/cleaner";
+import { packFromTurn } from "../services/assetPacker";
 import type {
   AIProvider,
   Attachment,
@@ -43,6 +44,7 @@ import type {
   ExtractSchemaTemplate,
   JudgePromptTemplate,
   JudgeState,
+  KnowledgeAsset,
   MapOutputState,
   MoASessionConfig,
   PanelState,
@@ -219,6 +221,11 @@ export interface UseMoa {
   updateExtractSchema: (id: string, patch: Partial<ExtractSchemaTemplate>) => void;
   removeExtractSchema: (id: string) => void;
 
+  // Knowledge Asset state + CRUD (Stage 4)
+  knowledgeAssets: KnowledgeAsset[];
+  addKnowledgeAsset: (asset: KnowledgeAsset) => void;
+  removeKnowledgeAsset: (id: string) => void;
+
   // Session state + CRUD
   sessions: ChatSession[];
   currentSessionId: string | null;
@@ -292,6 +299,7 @@ export function useMoa(): UseMoa {
   const [extractSchemas, setExtractSchemas] = useState<ExtractSchemaTemplate[]>(
     () => getTemplateConfig().extractSchemas
   );
+  const [knowledgeAssets, setKnowledgeAssets] = useState<KnowledgeAsset[]>([]);
   const [sessions, setSessions] = useState<ChatSession[]>(
     () => getTemplateConfig().sessions
   );
@@ -326,6 +334,7 @@ export function useMoa(): UseMoa {
       setRoleTemplates(finalized.roleTemplates);
       setJudgePrompts(finalized.judgePrompts);
       setExtractSchemas(finalized.extractSchemas);
+      setKnowledgeAssets(finalized.knowledgeAssets);
       setSessions(finalized.sessions);
       setCurrentSessionId(finalized.currentSessionId);
       // Apply persisted language to i18next + local state.
@@ -359,6 +368,7 @@ export function useMoa(): UseMoa {
         roleTemplates,
         judgePrompts,
         extractSchemas,
+        knowledgeAssets,
         sessions: sessions.map((s) => ({
           ...s,
           messages: s.messages.map((t) => ({
@@ -385,6 +395,7 @@ export function useMoa(): UseMoa {
     roleTemplates,
     judgePrompts,
     extractSchemas,
+    knowledgeAssets,
     sessions,
     currentSessionId,
     language,
@@ -581,6 +592,16 @@ export function useMoa(): UseMoa {
         },
       }))
     );
+  }, []);
+
+  /* --- Knowledge Asset CRUD (Stage 4) --- */
+
+  const addKnowledgeAsset = useCallback((asset: KnowledgeAsset) => {
+    setKnowledgeAssets((prev) => [asset, ...prev]);
+  }, []);
+
+  const removeKnowledgeAsset = useCallback((id: string) => {
+    setKnowledgeAssets((prev) => prev.filter((a) => a.id !== id));
   }, []);
 
   /* ----------------------- session CRUD ------------------------------ */
@@ -1382,6 +1403,23 @@ export function useMoa(): UseMoa {
         }
         setRunning(false);
         abortRef.current = null;
+
+        // Stage 4: auto-pack Knowledge Asset from this turn's result.
+        // Re-read the latest session state to get the completed turn.
+        const latestSession = sessions.find((s) => s.sessionId === sessionId);
+        const latestTurn = latestSession?.messages.find((t) => t.id === turnId);
+        if (latestTurn) {
+          const asset = packFromTurn({
+            turn: latestTurn,
+            taskType: config.taskType,
+            attachments: atts,
+            panelModels: panelProviders.map((p) => p.name),
+            judgeModel: judgeProviders[0]?.name ?? "",
+          });
+          if (asset) {
+            setKnowledgeAssets((prev) => [asset, ...prev]);
+          }
+        }
       }
     },
     [
@@ -1421,6 +1459,9 @@ export function useMoa(): UseMoa {
     addExtractSchema,
     updateExtractSchema,
     removeExtractSchema,
+    knowledgeAssets,
+    addKnowledgeAsset,
+    removeKnowledgeAsset,
     sessions,
     currentSessionId,
     currentSession,

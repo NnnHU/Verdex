@@ -127,6 +127,7 @@
     "tabProviders": "📦 Providers",
     "tabTemplates": "🎭 Templates",
     "tabSchemas": "📋 Schemas",
+    "tabAssets": "📦 Assets",
     "description": "Manage global OpenAI-compatible endpoints. Any model can serve as Panel or Judge in any session.",
     "closeAria": "Close",
     "emptyState": "No models yet. Click \"Add model\" below to create your first provider.",
@@ -200,6 +201,12 @@
     "extractedSummary": "【Extracted knowledge from documents】",
     "analyzeQuestion": "Based on the above extracted knowledge, analyze the following",
     "extractFailed": "Stage 1 extraction failed"
+  },
+  "assetsModal": {
+    "description": "Knowledge Assets auto-saved from analysis results. Export to Claude Skill / Markdown / JSON from the chat.",
+    "empty": "No assets yet. Run an analysis and a Knowledge Asset will be auto-saved here.",
+    "taskType": "Task",
+    "sources": "Sources"
   },
   "mapReduce": {
     "mapHeader": "📄 Document extraction (Map)",

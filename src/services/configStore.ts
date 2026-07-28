@@ -24,6 +24,7 @@ import type {
   ChatSession,
   ExtractSchemaTemplate,
   JudgePromptTemplate,
+  KnowledgeAsset,
   RoleTemplate,
 } from "../types/moa";
 import { getEnvProviders } from "./envConfig";
@@ -39,6 +40,8 @@ export interface ConfigFile {
   judgePrompts: JudgePromptTemplate[];
   /** Stage 3 custom extract-schema templates. */
   extractSchemas: ExtractSchemaTemplate[];
+  /** Stage 4: persisted Knowledge Assets (from analysis runs). */
+  knowledgeAssets: KnowledgeAsset[];
   sessions: ChatSession[];
   currentSessionId: string | null;
   /** UI language: "en" (default) or "zh". */
@@ -315,6 +318,7 @@ function normalizeConfigShape(raw: Partial<ConfigFile>): ConfigFile {
     roleTemplates: Array.isArray(raw.roleTemplates) ? raw.roleTemplates : [],
     judgePrompts: Array.isArray(raw.judgePrompts) ? raw.judgePrompts : [],
     extractSchemas: Array.isArray(raw.extractSchemas) ? raw.extractSchemas : [],
+    knowledgeAssets: Array.isArray(raw.knowledgeAssets) ? raw.knowledgeAssets : [],
     sessions: Array.isArray(raw.sessions) ? raw.sessions : [],
     currentSessionId: raw.currentSessionId ?? null,
     language: raw.language === "zh" ? "zh" : "en",
