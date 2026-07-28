@@ -16,6 +16,8 @@ interface VaultViewProps {
   categories: AssetCategory[];
   onClassifyAsset: (assetId: string) => Promise<void>;
   onRemoveCategory: (categoryId: string) => void;
+  onAddCategory: (name: string) => string;
+  onUpdateAssetCategories: (assetId: string, categoryIds: string[]) => void;
   onRemoveAsset: (id: string) => void;
   onClose: () => void;
 }
@@ -48,15 +50,21 @@ function AssetCard({
   categories,
   onRemove,
   onClassify,
+  onUpdateCategories,
+  onAddCategory,
 }: {
   asset: KnowledgeAsset;
   categories: AssetCategory[];
   onRemove: (id: string) => void;
   onClassify?: (assetId: string) => Promise<void>;
+  onUpdateCategories?: (assetId: string, categoryIds: string[]) => void;
+  onAddCategory?: (name: string) => string;
 }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [exportMenu, setExportMenu] = useState(false);
+  const [catMenu, setCatMenu] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
 
   const handleExport = (format: "claude-skill" | "markdown" | "json" | "verdex-native") => {
     const result = exportAsset(asset, format);
@@ -187,8 +195,60 @@ function AssetCard({
                 onClick={() => onClassify(asset.id)}
                 className="text-[11px] text-ink-muted hover:text-accent"
               >
-                🏷️ {t("vault.classify")}
+                🏷️ {t("vault.aiClassify")}
               </button>
+            )}
+            {onUpdateCategories && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setCatMenu((v) => !v)}
+                  className="text-[11px] text-ink-muted hover:text-ink"
+                >
+                  📁 {t("vault.setCategory")}
+                </button>
+                {catMenu && (
+                  <div className="absolute left-0 top-full z-20 mt-1 max-h-48 w-48 overflow-y-auto rounded-md border border-hairline-strong bg-canvas shadow-lg">
+                    {categories.map((cat) => {
+                      const checked = asset.categories.includes(cat.id);
+                      return (
+                        <label key={cat.id} className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-surface-2">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              const next = checked
+                                ? asset.categories.filter((id) => id !== cat.id)
+                                : [...asset.categories, cat.id];
+                              onUpdateCategories(asset.id, next);
+                            }}
+                            className="h-3 w-3 accent-[var(--accent)]"
+                          />
+                          <span className="text-[11px] text-ink">{cat.name}</span>
+                        </label>
+                      );
+                    })}
+                    {/* Quick add new category */}
+                    <div className="flex gap-1 border-t border-hairline px-2 py-1.5">
+                      <input
+                        type="text"
+                        value={newCatName}
+                        onChange={(e) => setNewCatName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && newCatName.trim() && onAddCategory) {
+                            const newId = onAddCategory(newCatName.trim());
+                            onUpdateCategories(asset.id, [...asset.categories, newId]);
+                            setNewCatName("");
+                            setCatMenu(false);
+                          }
+                        }}
+                        placeholder={t("vault.categoryName")}
+                        className="w-full rounded border border-hairline bg-surface px-1.5 py-0.5 text-[10px] text-ink"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -197,10 +257,13 @@ function AssetCard({
   );
 }
 
-export function VaultView({ assets, categories, onRemoveAsset, onClassifyAsset, onRemoveCategory, onClose }: VaultViewProps) {
+export function VaultView({ assets, categories, onRemoveAsset, onClassifyAsset, onRemoveCategory, onAddCategory, onUpdateAssetCategories, onClose }: VaultViewProps) {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
+  const [batchClassifying, setBatchClassifying] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [showNewCat, setShowNewCat] = useState(false);
 
   const filtered = useMemo(() => {
     let result = assets;
@@ -224,6 +287,22 @@ export function VaultView({ assets, categories, onRemoveAsset, onClassifyAsset, 
   const uncategorized = assets.filter((a) => a.categories.length === 0);
 
   const displayAssets = filterCategoryId === "__uncategorized__" ? uncategorized : filtered;
+
+  const handleBatchClassify = async () => {
+    setBatchClassifying(true);
+    for (const a of uncategorized) {
+      await onClassifyAsset(a.id);
+    }
+    setBatchClassifying(false);
+  };
+
+  const handleAddCategory = () => {
+    const name = newCatName.trim();
+    if (!name) return;
+    onAddCategory(name);
+    setNewCatName("");
+    setShowNewCat(false);
+  };
 
   return (
     <div className="flex h-full bg-canvas">
@@ -268,6 +347,39 @@ export function VaultView({ assets, categories, onRemoveAsset, onClassifyAsset, 
             className={"mt-1 w-full rounded px-2 py-1 text-left text-[11px] text-ink-faint hover:bg-surface-2"}
           >
             {t("vault.uncategorized")} ({uncategorized.length})
+          </button>
+        )}
+        {uncategorized.length > 0 && (
+          <button
+            type="button"
+            onClick={handleBatchClassify}
+            disabled={batchClassifying}
+            className="mt-2 w-full rounded bg-accent-soft/15 px-2 py-1.5 text-left text-[11px] text-accent hover:bg-accent-soft/25 disabled:opacity-50"
+          >
+            {batchClassifying ? "⏳..." : `🏷️ ${t("vault.batchClassify")} (${uncategorized.length})`}
+          </button>
+        )}
+        {/* New category */}
+        {showNewCat ? (
+          <div className="mt-2 flex gap-1">
+            <input
+              type="text"
+              value={newCatName}
+              onChange={(e) => setNewCatName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
+              placeholder={t("vault.categoryName")}
+              className="w-full rounded border border-hairline-strong bg-surface px-1.5 py-1 text-[11px] text-ink"
+              autoFocus
+            />
+            <button onClick={handleAddCategory} className="rounded bg-accent px-2 py-1 text-[11px] text-on-accent">✓</button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowNewCat(true)}
+            className="mt-2 w-full rounded px-2 py-1 text-left text-[11px] text-ink-faint hover:bg-surface-2"
+          >
+            + {t("vault.newCategory")}
           </button>
         )}
       </div>
@@ -318,6 +430,8 @@ export function VaultView({ assets, categories, onRemoveAsset, onClassifyAsset, 
                   categories={categories}
                   onRemove={onRemoveAsset}
                   onClassify={onClassifyAsset}
+                  onUpdateCategories={onUpdateAssetCategories}
+                  onAddCategory={onAddCategory}
                 />
               ))}
             </div>

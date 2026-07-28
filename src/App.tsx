@@ -165,6 +165,8 @@ export default function App() {
             onRemoveAsset={moa.removeKnowledgeAsset}
             onClassifyAsset={moa.classifyKnowledgeAsset}
             onRemoveCategory={moa.removeAssetCategory}
+            onAddCategory={moa.addAssetCategory}
+            onUpdateAssetCategories={moa.updateAssetCategories}
             onClose={() => setVaultOpen(false)}
           />
         </div>

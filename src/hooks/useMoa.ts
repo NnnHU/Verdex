@@ -235,7 +235,9 @@ export interface UseMoa {
   removeKnowledgeAsset: (id: string) => void;
   classifyKnowledgeAsset: (assetId: string) => Promise<void>;
   assetCategories: AssetCategory[];
+  addAssetCategory: (name: string) => string;
   removeAssetCategory: (id: string) => void;
+  updateAssetCategories: (assetId: string, categoryIds: string[]) => void;
 
   // Session state + CRUD
   sessions: ChatSession[];
@@ -655,6 +657,23 @@ export function useMoa(): UseMoa {
   }, []);
 
   /* --- Asset Category CRUD + Classifier (Stage 3 Vault) --- */
+
+  const addAssetCategory = useCallback((name: string) => {
+    const id = crypto.randomUUID();
+    setAssetCategories((prev) => [...prev, { id, name, isAuto: false }]);
+    return id;
+  }, []);
+
+  const updateAssetCategories = useCallback(
+    (assetId: string, categoryIds: string[]) => {
+      setKnowledgeAssets((prev) =>
+        prev.map((a) =>
+          a.id === assetId ? { ...a, categories: categoryIds } : a
+        )
+      );
+    },
+    []
+  );
 
   const removeAssetCategory = useCallback((id: string) => {
     setAssetCategories((prev) => prev.filter((c) => c.id !== id));
@@ -1580,7 +1599,9 @@ export function useMoa(): UseMoa {
     removeKnowledgeAsset,
     classifyKnowledgeAsset,
     assetCategories,
+    addAssetCategory,
     removeAssetCategory,
+    updateAssetCategories,
     sessions,
     currentSessionId,
     currentSession,
