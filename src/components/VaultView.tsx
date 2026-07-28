@@ -76,7 +76,7 @@ function AssetCard({
   };
 
   return (
-    <div className="rounded-lg border border-card-verdict/30 bg-card-verdict/5 overflow-hidden">
+    <div className="rounded-lg border border-card-verdict/30 bg-card-verdict/5 overflow-visible relative z-10">
       {/* Header (always visible) */}
       <button
         type="button"
@@ -189,15 +189,6 @@ function AssetCard({
             >
               🗑️ {t("common.delete")}
             </button>
-            {onClassify && (
-              <button
-                type="button"
-                onClick={() => onClassify(asset.id)}
-                className="text-[11px] text-ink-muted hover:text-accent"
-              >
-                🏷️ {t("vault.aiClassify")}
-              </button>
-            )}
             {onUpdateCategories && (
               <div className="relative">
                 <button
