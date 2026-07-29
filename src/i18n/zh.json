@@ -55,7 +55,8 @@
     "attachmentCleaning": "清洗中…",
     "attachmentRemove": "移除",
     "readError": "读取失败: {{message}}",
-    "attachmentsHint": "附件会随本会话的每条消息一起发送"
+    "attachmentsHint": "附件会随本会话的每条消息一起发送",
+    "recommendedAssets": "推荐引用:"
   },
   "judge": {
     "loading": "裁判正在综合 {{count}} 个专家的回答",

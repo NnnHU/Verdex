@@ -411,6 +411,17 @@ export default function App() {
           attachments={session?.attachments ?? []}
           onAddFiles={handleAddFiles}
           onRemoveAttachment={handleRemoveAttachment}
+          knowledgeAssets={moa.knowledgeAssets}
+          referencedAssetIds={session?.config.referenceAssetIds ?? []}
+          onAddReferenceAsset={(assetId) => {
+            if (!session) return;
+            const current = session.config.referenceAssetIds ?? [];
+            if (!current.includes(assetId)) {
+              moa.updateSessionConfig(session.sessionId, {
+                referenceAssetIds: [...current, assetId],
+              });
+            }
+          }}
         />
       </div>
 

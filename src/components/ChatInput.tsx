@@ -7,9 +7,10 @@
  *  - 📎 button attaches txt/md documents (Stage 2); their text is prepended to
  *    the prompt by the hook. Attachments are session-scoped.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Attachment } from "../types/moa";
+import type { Attachment, KnowledgeAsset } from "../types/moa";
+import { recommendAssets } from "../services/assetRecommender";
 
 interface ChatInputProps {
   onSend: (prompt: string) => void;
@@ -23,6 +24,12 @@ interface ChatInputProps {
   onAddFiles?: (files: File[]) => void;
   /** Remove one attachment by id. */
   onRemoveAttachment?: (attachmentId: string) => void;
+  /** Knowledge assets for query-based recommendations. */
+  knowledgeAssets?: KnowledgeAsset[];
+  /** Currently referenced asset ids (to avoid re-recommending). */
+  referencedAssetIds?: string[];
+  /** Add an asset to references. */
+  onAddReferenceAsset?: (assetId: string) => void;
 }
 
 const MAX_HEIGHT = 200; // px, before the textarea starts scrolling
@@ -35,10 +42,20 @@ export function ChatInput({
   attachments = [],
   onAddFiles,
   onRemoveAttachment,
+  knowledgeAssets = [],
+  referencedAssetIds = [],
+  onAddReferenceAsset,
 }: ChatInputProps) {
   const { t } = useTranslation();
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // AI asset recommendations based on current input.
+  const recommendations = useMemo(() => {
+    if (!value.trim() || value.trim().length < 4 || knowledgeAssets.length === 0) return [];
+    return recommendAssets(value, knowledgeAssets, 3)
+      .filter((r) => !referencedAssetIds.includes(r.asset.id));
+  }, [value, knowledgeAssets, referencedAssetIds]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-grow the textarea to fit its content.
@@ -123,6 +140,25 @@ export function ChatInput({
                   </button>
                 )}
               </span>
+            ))}
+          </div>
+        )}
+
+        {/* AI asset recommendations (based on current input) */}
+        {recommendations.length > 0 && onAddReferenceAsset && (
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] text-accent">💡 {t("chatInput.recommendedAssets")}</span>
+            {recommendations.map((rec) => (
+              <button
+                key={rec.asset.id}
+                type="button"
+                onClick={() => onAddReferenceAsset(rec.asset.id)}
+                disabled={running}
+                className="rounded-full border border-accent/40 bg-accent-soft/10 px-2 py-0.5 text-[10px] text-accent transition-colors hover:bg-accent-soft/20 disabled:opacity-50"
+                title={rec.matchedKeywords.join(", ")}
+              >
+                + {rec.asset.name}
+              </button>
             ))}
           </div>
         )}

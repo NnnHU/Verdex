@@ -55,7 +55,8 @@
     "attachmentCleaning": "cleaning…",
     "attachmentRemove": "Remove",
     "readError": "Failed to read: {{message}}",
-    "attachmentsHint": "Attachments are sent with every message in this session"
+    "attachmentsHint": "Attachments are sent with every message in this session",
+    "recommendedAssets": "Suggested references:"
   },
   "judge": {
     "loading": "Judge is synthesizing {{count}} experts' answers",
