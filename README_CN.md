@@ -1,137 +1,191 @@
 # Verdex
 
-> 纯本地端、无服务器的多模型裁判综合引擎（MoA Synthesis Engine）桌面客户端。
+> **把散乱的文档变成可信、可复用的知识 —— 通过结构化多模型推理。**
 
-让多个 AI 模型并行作答（Panel 层），再由裁判模型综合出结构化的四段裁决（核心共识 / 观点碰撞 / 独特盲点 / 最终裁决）。所有数据纯本地存储，API 请求由本地直接发起，不上传任何服务器。
+[English](./README.md) · [开发文档](./docs/HANDOFF/README.md)
 
-[English README](./README.md)
+---
 
-## 项目文档
+## 🤔 解决什么问题
 
-| 文档 | 用途 |
-|---|---|
-| [docs/HANDOFF.md](./docs/HANDOFF.md) | 接手文档：已完成功能、当前卡点、踩过的坑、架构决策 |
-| [docs/ORCHESTRATION_ROADMAP.md](./docs/ORCHESTRATION_ROADMAP.md) | 编排能力融合路线图：把 Verdex 升级成通用编排平台（5 阶段） |
+你有 7 份研报。你问 Claude 核心结论是什么。你得到一个自信的回答 —— 但是：
 
-## 技术栈
+- **它真的读完 7 份了吗？** 你不确定。
+- **它有没有编造？** 某个数字似乎不对。你没法验证。
+- **下个月还能用吗？** 不能 —— 答案留在一个明天就消失的聊天里。
 
-| 层 | 技术 |
-|---|---|
-| 桌面壳 | Tauri 2.0（Rust 后端 + WebView 前端） |
-| 前端 | React 18 + TypeScript 5 |
-| 构建 | Vite 5 |
-| 样式 | Tailwind CSS v4（CSS-first，通过 CSS 变量支持主题切换） |
-| 国际化 | react-i18next（默认英文，可切中文） |
-| 持久化 | 明文 `config.json`（appDataDir）+ 浏览器 localStorage 兜底 |
-| AI 调度 | 纯原生 TS 异步（Promise.all），无 LangChain/AutoGen |
-| 测试 | Vitest（26 个单元测试） |
+**Verdex 让多个 AI 模型并行阅读、对撞辩论、综合裁决，产出你可以信任、复用、导出的结构化知识资产。**
 
-**拒绝任何第三方 AI 框架。无后端服务器。**
+---
 
-## 快速开始
+## ✨ Verdex 做什么
 
-### 环境要求
-- Node.js 18+
-- Rust 工具链（`rustup` 安装；`cargo --version` 验证）
-- Windows: WebView2（Win10/11 自带）
+**三种任务，一条流水线：**
 
-### 安装与运行
-```bash
-npm install
-npm run tauri dev      # 桌面应用开发模式（首次编译 Rust 约 1-2 分钟）
-```
+| 任务 | 做什么 | 适合 |
+|------|--------|------|
+| 📄 **文档提取** | 加载文档 → 提取结构化 JSON（思维模型、因果链等） | 把文字转成可复用数据 |
+| 📊 **文档分析** | 先提取 → 多模型各自分析 → 裁判综合 | 深度多视角分析（≥2 个模型） |
+| 💬 **快速问答** | 提问 → 模型并行作答 → 裁判综合 | 获取对任何问题的多元见解 |
 
-纯前端调试（浏览器，无 Tauri 桌面壳，API 受 CORS 限制）：
-```bash
-npm run dev            # 访问 http://localhost:1420
-```
-
-### 验证
-```bash
-npx tsc --noEmit       # 类型检查
-npm test               # 单元测试（26 个）
-npm run build          # 前端打包
-```
-
-## 使用方法
-
-1. **填 API Key**：左侧栏 → ⚙️ 设置 → 模型供应商标签 → 每个 provider 填入 Base URL + API Key + 模型名
-2. **测试连接**：点「🔌 测试连接」并发探测每个 provider（绿=通过，红=错误详情）。上下文窗口自动从 API 或内置数据库（40+ 模型）检测，显示在徽章中（如 `✓ 234ms · 128K ctx`）。
-3. **选模式**：配置栏切换简单/高级模式，选择 Panel 和 Judge
-4. **提问**：底部输入框，`Ctrl/Cmd+Enter` 发送
-
-### 配置文件位置
-- **Windows**: `%APPDATA%\com.verdex.app\config.json`
-- 明文 JSON，可直接编辑/备份。含 providers（含 API Key）、角色模板、Judge 提示词、全部会话历史、语言、主题。
-
-## 核心功能
-
-### MoA 综合引擎
-- **Panel 并发**：多个模型通过 `Promise.all` 并行作答（防失血——单个失败不阻塞其他）
-- **Panel 重试**：瞬态错误（超时/5xx/429）800ms 后重试 1 次；鉴权错误（401/403）不重试
-- **Judge 综合**：四段结构化裁决（共识/碰撞/盲点/裁决）
-- **多裁判对撞**（高级模式）：多个裁判各出独立裁决，刻意保留分歧
-- **降级展示**：裁判失败时直接展示各 Panel 原始回答
-- **智能熔断器**：输入上限自动从选中模型中最小的上下文窗口推导（或内置 40+ 模型数据库）。测试连接自动检测上下文大小。
-
-### 双协议适配
-| | OpenAI 兼容 | Anthropic 原生 |
-|---|---|---|
-| 端点 | `/chat/completions` | `/v1/messages` |
-| 鉴权 | `Bearer` | `x-api-key` + `anthropic-version` |
-| system 处理 | 留在 messages | 提取到顶层 `system` 参数 |
-| SSE 流式 | `choices[0].delta.content` | `content_block_delta.delta.text` |
-
-Base URL 自动规范化：去尾斜杠、去 `/chat/completions` 后缀、Anthropic 智能 `/v1` 去重。
-
-支持：DeepSeek、Qwen、Groq (Llama)、OpenRouter、NVIDIA、Anthropic (Claude) 及任何 OpenAI 兼容端点。
-
-### 国际化（i18n）
-- 默认语言：**英文**
-- 可切换至 **中文**（左侧栏语言下拉）
-- 内置提示词模板（5 个角色 + 3 个 Judge 提示词）提供中英双语版本
-- 语言选择持久化到 `config.json`
-
-### 主题系统
-通过左侧栏主题下拉切换三种主题：
-- **Dark 深色**（默认）：深蓝黑画布，blue/purple 强调色
-- **Light 浅色**：白底深灰文字，蓝色强调
-- **Soft 柔和**：暖灰底，violet 强调色——护眼不刺眼
-
-所有颜色均为 CSS 变量——修改 `src/index.css` 即可自定义任意主题。
-
-### 角色模板与 Judge 提示词
-- 5 个内置 Panel 角色模板（批判性审视、结构化拆解、实证核查、魔鬼代言人、第一性原理）
-- 3 个内置 Judge 提示词模板（默认四段裁决、严格逻辑审计、多视角综合）
-- 通过 设置 → 提示词模板标签 完全可编辑
-- 模板为中性通用思维工具
-
-## 项目结构
+**和单模型的本质区别：**
 
 ```
-Verdex/
-├── package.json · vite.config.ts · tsconfig.json · index.html
-├── src/
-│   ├── main.tsx · App.tsx · index.css · vite-env.d.ts
-│   ├── i18n/                     ← i18next 初始化 + en.json + zh.json
-│   ├── types/moa.ts              ← 全部数据结构（单一真相源）
-│   ├── services/
-│   │   ├── httpClient.ts         ← 双协议适配 + SSE 流式 + testProvider
-│   │   ├── moaEngine.ts          ← Promise.all 并发调度 + 熔断器
-│   │   ├── configStore.ts        ← config.json 读写 + 模板兜底
-│   │   └── config.template.json  ← 出厂默认配置（双语模板）
-│   ├── hooks/useMoa.ts           ← 状态机 + CRUD + 异步加载 + 防抖写盘
-│   └── components/               ← Sidebar / MoAConfigBar / SettingsModal(标签页)
-│       │                           JudgeMessage / PanelCollapseGroup / UserMessage
-│       │                           ChatInput / HelpModal
-├── test/                         ← Vitest 单元测试
-└── src-tauri/
-    ├── Cargo.toml · tauri.conf.json · capabilities/default.json
-    └── src/{lib.rs, main.rs}     ← 注册 http + fs 插件
+单模型：  文档 → 答案（信我吧）
+
+Verdex：  文档 → [模型A] [模型B] [模型C]
+                    ↓         ↓         ↓
+               ┌──────────────────────────────┐
+               │  裁判：综合 + 仲裁             │
+               │                               │
+               │  ✅ 共识（所有模型一致）        │
+               │  ⚔️  分歧（模型之间打架）       │
+               │  💡 盲点（所有人都漏了）        │
+               │  ⚖️  最终裁决                  │
+               └──────────────────────────────┘
 ```
 
-## 安全说明
+你得到的不仅是一个答案，而是 **模型在哪里达成共识、在哪里产生分歧、以及所有人都忽略了什么。**
 
-- **API Key 明文存储**在 `config.json` 中。请勿将该文件推送到公开 Git 仓库或同步到不受信任的云盘。
-- 所有数据纯本地，无任何上传。
-- 内置熔断器防止并发刷爆 API 额度。
+---
+
+## 📦 知识资产 —— 不仅仅是答案
+
+每次分析都产出一个 **知识资产** —— 持久化、可复用的知识包：
+
+```
+知识资产
+├── 共识     — 所有模型一致的结论
+├── 分歧     — 模型之间在哪里分歧（以及为什么）
+├── 盲点     — 所有人都忽略的角度
+├── 裁决     — 最终综合结论
+├── 来源     — 可追溯到原始文档
+└── 元数据   — 哪些模型、什么时间、什么任务
+
+导出为：
+├── Claude Skill (SKILL.md) — 放入 ~/.claude/skills/ 直接用
+├── Markdown     — 人可读文档
+├── JSON         — 机器可读数据
+└── Verdex Native — 内部跨会话复用
+```
+
+---
+
+## 📚 知识仓库
+
+内置知识库，每次分析自动入库：
+
+- **AI 自动分类** — 新资产自动归类
+- **全文搜索** — 按名称、内容、来源查找
+- **智能筛选** — 按分类、任务类型、日期
+- **资产引用** — 把已有知识注入新分析
+- **AI 推荐** — 输入问题时实时推荐相关资产
+- **一键导出** — Claude Skill / Markdown / JSON
+
+---
+
+## 🚀 快速开始
+
+### 1. 下载
+
+| 平台 | 下载 |
+|------|------|
+| Windows | `.msi` 安装包 |
+| macOS | `.dmg` |
+| Linux | `.deb` / `.AppImage` |
+
+→ [Releases](https://github.com/NnnHU/Verdex/releases)
+
+### 2. 配置
+
+打开设置 → 添加你的 AI 模型（任何 OpenAI 兼容 API）：
+
+```
+Base URL:  https://api.siliconflow.cn/v1
+API Key:   sk-xxxx
+Model:     deepseek-ai/DeepSeek-V3
+```
+
+支持：DeepSeek、Qwen、Groq、OpenRouter 及任何 OpenAI 兼容接口。
+
+### 3. 使用
+
+1. 选择任务类型（📄 提取 / 📊 分析 / 💬 问答）
+2. 添加文档（📎 .txt / .md）
+3. 提问
+4. 获得结构化结果（共识 / 分歧 / 盲点 / 裁决）
+5. 导出为知识资产或 Claude Skill
+
+---
+
+## 🔑 核心特性
+
+### 多模型推理
+- 并行模型执行（专家 Panel）+ 防失血错误处理
+- 裁判综合产出共识 / 分歧 / 盲点 / 裁决
+- 每个专家可挂角色模板（批判性审视 / 第一性原理 / 魔鬼代言人）
+
+### 文档智能
+- 加载 .txt / .md 文件作为分析语料
+- ASR 清洗（修正语音转文字错误）
+- 自定义提取结构（定义要提取什么 JSON）
+- 结构校验 + 3 次重写循环
+- 大文档自适应 Map-Reduce
+
+### 记忆与上下文
+- 多轮对话记忆（滑窗 + 分层摘要）
+- 在新分析中引用已有知识资产
+- 输入时 AI 实时推荐相关资产
+
+### 隐私
+- **100% 本地。** 无服务器、无云端、不上传数据。
+- API 请求由你的设备直接发送给供应商。
+- 所有数据（配置、会话、资产）存储在本地 config.json。
+
+---
+
+## 🏗️ 架构
+
+```
+输入（PDF/MD/TXT/会议纪要/...）
+    ↓
+阶段 1：提取    — 结构化知识抽取
+    ↓
+阶段 2：推理    — 多模型并行分析
+    ↓
+阶段 3：裁决    — 综合 + 仲裁
+    ↓
+阶段 4：知识资产 — 持久化、可复用、可导出
+    ↓
+导出：Claude Skill | Markdown | JSON | Verdex Native
+```
+
+**技术栈：** Tauri 2.0（Rust + WebView）· React 18 · TypeScript · Tailwind CSS v4
+
+无第三方 AI 框架。无后端服务器。纯原生调度。
+
+---
+
+## 📖 文档
+
+| 文档 | 内容 |
+|------|------|
+| [交接指南](./docs/HANDOFF/README.md) | 完整开发者指南（从这里开始） |
+| [已完成功能](./docs/HANDOFF/COMPLETED.md) | 功能清单 + 文件位置 |
+| [踩坑记录](./docs/HANDOFF/PITFALLS.md) | 11 个必须避免的坑 |
+| [架构评审](./docs/MULTI_MODEL_REVIEW.md) | 六模型架构评估 |
+| [知识仓库设计](./docs/KNOWLEDGE_VAULT_DESIGN.md) | 知识库设计文档 |
+
+---
+
+## 📋 环境要求
+
+- 任何 OpenAI 兼容 API（DeepSeek、Qwen、Groq 等）
+- Windows 10+ / macOS / Linux
+- 无需安装 Python、Node.js 或任何运行时 —— Verdex 是独立应用
+
+---
+
+## License
+
+MIT
