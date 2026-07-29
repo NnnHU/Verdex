@@ -231,7 +231,16 @@
     "save": "保存",
     "assetName": "名称",
     "assetDescription": "描述",
-    "referencedBy": "被引用于"
+    "assetTags": "标签 (逗号分隔)",
+    "assetTagsPlaceholder": "标签1, 标签2, 标签3",
+    "referencedBy": "被引用于",
+    "allTasks": "全部任务",
+    "taskExtract": "文档提取",
+    "taskAnalysis": "文档分析",
+    "taskQa": "快速问答",
+    "sortNewest": "最新优先",
+    "sortOldest": "最旧优先",
+    "sortName": "名称排序"
   },
   "assetsModal": {
     "description": "知识资产从分析结果自动保存。可在对话中导出为 Claude Skill / Markdown / JSON。",

@@ -118,7 +118,9 @@ Knowledge Asset 是 Verdex 的**核心价值产出**（"The compiler for reusabl
 
 首版用关键词匹配，积累多了升级语义推荐。
 
-### 2.4 临时提取分组
+### 2.4 临时提取分组 🔜 后续
+
+> 当前已实现关键词推荐（§2.3），可覆盖大多数推荐场景。临时分组（AI 跨分类组织相关资产）作为增强功能留后续。
 
 AI 从仓库临时组织一组相关资产（不改永久分类）：
 
@@ -140,8 +142,8 @@ AI 临时分组:
 | 全文搜索 | name/description/consensus/divergences/blindspots/verdict |
 | 按分类 | 点左侧分类树筛选 |
 | 按标签 | 用户自定义标签 |
-| 按来源 | 原始文档名 |
-| 按时间 | 创建时间范围 |
+| 按来源 | 原始文档名 | 🔜 后续 |
+| 按时间 | 创建时间范围 | 🔜 后续（当前仅支持排序 newest/oldest/name）|
 | 按任务类型 | extract/analysis/quick_qa |
 
 ### 2.6 多选引用 + Panel 注入

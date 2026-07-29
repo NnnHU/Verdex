@@ -76,6 +76,7 @@ function AssetCard({
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(asset.name);
   const [editDesc, setEditDesc] = useState(asset.description);
+  const [editTags, setEditTags] = useState((asset.tags ?? []).join(", "));
 
   const handleExport = (format: "claude-skill" | "markdown" | "json" | "verdex-native") => {
     const result = exportAsset(asset, format);
@@ -203,6 +204,16 @@ function AssetCard({
                   className="w-full rounded border border-hairline-strong bg-surface px-2 py-1 text-xs text-ink"
                 />
               </label>
+              <label className="block">
+                <span className="text-[10px] text-ink-muted">{t("vault.assetTags")}</span>
+                <input
+                  type="text"
+                  value={editTags}
+                  onChange={(e) => setEditTags(e.target.value)}
+                  placeholder={t("vault.assetTagsPlaceholder")}
+                  className="w-full rounded border border-hairline-strong bg-surface px-2 py-1 text-xs text-ink"
+                />
+              </label>
             </div>
           )}
 
@@ -245,7 +256,11 @@ function AssetCard({
               <button
                 type="button"
                 onClick={() => {
-                  onUpdateAsset(asset.id, { name: editName, description: editDesc });
+                  onUpdateAsset(asset.id, {
+                    name: editName,
+                    description: editDesc,
+                    tags: editTags.split(",").map((s) => s.trim()).filter(Boolean),
+                  });
                   setEditing(false);
                 }}
                 className="text-[11px] text-success"
@@ -325,6 +340,8 @@ export function VaultView({ assets, categories, providers, classifyModelId, onCl
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
+  const [filterTaskType, setFilterTaskType] = useState<string>("");
+  const [sortBy, setSortBy] = useState<string>("newest");
   const [batchClassifying, setBatchClassifying] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [showNewCat, setShowNewCat] = useState(false);
@@ -333,6 +350,9 @@ export function VaultView({ assets, categories, providers, classifyModelId, onCl
     let result = assets;
     if (filterCategoryId) {
       result = result.filter((a) => a.categories.includes(filterCategoryId));
+    }
+    if (filterTaskType) {
+      result = result.filter((a) => a.originTaskType === filterTaskType);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -345,8 +365,12 @@ export function VaultView({ assets, categories, providers, classifyModelId, onCl
           a.sources.some((s) => s.toLowerCase().includes(q))
       );
     }
+    // Sort
+    if (sortBy === "newest") result = [...result].sort((a, b) => b.createdAt - a.createdAt);
+    else if (sortBy === "oldest") result = [...result].sort((a, b) => a.createdAt - b.createdAt);
+    else if (sortBy === "name") result = [...result].sort((a, b) => a.name.localeCompare(b.name));
     return result;
-  }, [assets, searchQuery, filterCategoryId]);
+  }, [assets, searchQuery, filterCategoryId, filterTaskType, sortBy]);
 
   const uncategorized = assets.filter((a) => a.categories.length === 0);
 
@@ -484,15 +508,34 @@ export function VaultView({ assets, categories, providers, classifyModelId, onCl
           </div>
         </div>
 
-        {/* Search bar */}
-        <div className="border-b border-hairline px-4 py-2">
+        {/* Search + filter bar */}
+        <div className="flex items-center gap-2 border-b border-hairline px-4 py-2">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("vault.searchPlaceholder")}
-            className="w-full rounded-md border border-hairline-strong bg-surface/60 px-3 py-1.5 text-xs text-ink placeholder:text-ink-faint focus:border-accent/60 focus:outline-none"
+            className="flex-1 rounded-md border border-hairline-strong bg-surface/60 px-3 py-1.5 text-xs text-ink placeholder:text-ink-faint focus:border-accent/60 focus:outline-none"
           />
+          <select
+            value={filterTaskType}
+            onChange={(e) => setFilterTaskType(e.target.value)}
+            className="rounded-md border border-hairline-strong bg-surface px-2 py-1.5 text-[11px] text-ink-muted"
+          >
+            <option value="">{t("vault.allTasks")}</option>
+            <option value="document_extract">📄 {t("vault.taskExtract")}</option>
+            <option value="document_analysis">📊 {t("vault.taskAnalysis")}</option>
+            <option value="quick_qa">💬 {t("vault.taskQa")}</option>
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="rounded-md border border-hairline-strong bg-surface px-2 py-1.5 text-[11px] text-ink-muted"
+          >
+            <option value="newest">{t("vault.sortNewest")}</option>
+            <option value="oldest">{t("vault.sortOldest")}</option>
+            <option value="name">{t("vault.sortName")}</option>
+          </select>
         </div>
 
         {/* Asset list */}

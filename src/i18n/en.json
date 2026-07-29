@@ -231,7 +231,16 @@
     "save": "Save",
     "assetName": "Name",
     "assetDescription": "Description",
-    "referencedBy": "Referenced by"
+    "assetTags": "Tags (comma-separated)",
+    "assetTagsPlaceholder": "tag1, tag2, tag3",
+    "referencedBy": "Referenced by",
+    "allTasks": "All tasks",
+    "taskExtract": "Document Extract",
+    "taskAnalysis": "Document Analysis",
+    "taskQa": "Quick Q&A",
+    "sortNewest": "Newest",
+    "sortOldest": "Oldest",
+    "sortName": "Name"
   },
   "assetsModal": {
     "description": "Knowledge Assets auto-saved from analysis results. Export to Claude Skill / Markdown / JSON from the chat.",
