@@ -1,392 +1,398 @@
-# Verdex 三阶段融合架构设计需求
+# Verdex Three-Stage Fusion Architecture Design Requirements
 
-> 把"文档提取"和"多模型分析"两条割裂的链路，融合成一条清晰的三阶段流水线。
-> 基于用户与 AI 的架构讨论（2026-07-24），替代当前 outputMode（Verdict/Extract/Map-Reduce）的混乱设计。
+> Fuse the two disjoint pipelines of "document extraction" and "multi-model analysis" into one clear three-stage pipeline.
+> Based on architecture discussions between the user and AI (2026-07-24), this replaces the current confusing `outputMode` (Verdict/Extract/Map-Reduce) design.
 >
-> 文档版本：1.0 · 2026-07-24 · 状态：设计待审
+> Document version: 1.0 · 2026-07-24 · Status: Design pending review
 
 ---
 
-## 0. 为什么要重构
+## 0. Why Refactor
 
-### 当前问题
+### Current Problems
 
-现在的 Verdex 有两条割裂的链路：
+The current Verdex has two disjoint pipelines:
 
-- **链路 A（文档提取）**：文档 → Extract Judge（按 schema 抽取）→ 结构化 JSON
-- **链路 B（多模型分析）**：问题 → Panel（多模型并行）→ Judge（四段裁决）
+- **Pipeline A (Document Extraction)**: document → Extract Judge (extract by schema) → structured JSON
+- **Pipeline B (Multi-Model Analysis)**: question → Panel (multi-model parallel) → Judge (four-part Verdict)
 
-它们通过 `outputMode`（Verdict/Extract/Map-Reduce）切换，但这个设计有三个根本问题：
+They are toggled via `outputMode` (Verdict/Extract/Map-Reduce), but this design has three fundamental problems:
 
-1. **配置混乱**：三个下拉（裁判提示词 / 输出 / 结构）总是全部显示，用户不知道什么时候用哪个。实际有条件依赖（Verdict 不用 Schema，Extract 不用裁判提示词），但 UI 不体现。
-2. **能力割裂**：只能"提取 OR 分析"，不能"先提取再分析"。用户想"从文档提取知识 → 多模型分析这些知识"做不到。
-3. **单模型不降级**：只有一个 Provider 时，仍显示 Panel/Judge/角色等无意义的配置。
+1. **Config confusion**: The three dropdowns (judge prompt / output / structure) are always all shown, and users don't know which to use when. There are actual conditional dependencies (Verdict doesn't use Schema, Extract doesn't use the judge prompt), but the UI doesn't reflect this.
+2. **Capability silos**: You can only do "extract OR analyze", not "extract then analyze". Users can't do "extract knowledge from documents → multi-model analyze that knowledge".
+3. **No single-model fallback**: When there's only one Provider, meaningless configs like Panel/Judge/roles are still shown.
 
-### 核心洞察
+### Core Insight
 
-用户的实际需求是**复杂大数据的分析**，天然分两步：
-1. **数据处理**（输入端）：从原始文档提取/精炼/结构化
-2. **数据分析**（逻辑端）：多模型对处理后的数据各自推理，Judge 综合
+The user's actual need is **analysis of complex, large-scale data**, which naturally splits into two steps:
+1. **Data processing** (input side): extract / refine / structure raw documents
+2. **Data analysis** (logic side): multiple models each reason over the processed data, Judge synthesizes
 
-这两步不是"二选一"，而是"先 A 后 B"的流水线。
-
----
-
-## 1. 两种编排范式（工业界对照）
-
-### 范式 1：多模型在数据处理阶段介入
-
-```
-文档1 → 模型A抽取 ─┐
-文档2 → 模型A抽取  ├→ Judge 综合所有结果
-文档3 → 模型A抽取 ─┘
-```
-- 每个子任务可由不同模型处理
-- 适合：各子任务需要不同专长（数学用 R1、文本用 V3）
-
-### 范式 2：高效模型预处理 + 分析阶段才多模型 ⭐（Verdex 选这个）
-
-```
-文档 → 高效模型(V3) 统一拆分/精炼/结构化 → 干净的结构化数据
-                                              ↓
-                                    多个模型各自分析 → Judge 综合
-```
-- 数据处理标准化（一个模型一套标准，快且一致）
-- 分析多样化（多视角推理）
-- 适合：Verdex 的场景（文档→知识→分析）
-
-### Verdex 的选择：范式 2
-
-理由：
-- 数据处理是"体力活"（读全文、修错别字、按 schema 抽），一个高效模型做得又快又一致
-- 分析是"脑力活"（这个策略对不对？泡沫会不会破？），多模型各自推理更有价值
-- 拆分后的数据足够精炼（7 万字原文 → 5 千字结构化知识），分析模型不需要读原文
+These two steps are not "either-or", but a "A first, then B" pipeline.
 
 ---
 
-## 2. 三阶段融合架构
+## 1. Two Orchestration Paradigms (Industry Comparison)
 
-### 整体流程
+### Paradigm 1: Multiple Models Intervene During Data Processing
+
+```
+Doc 1 → Model A extract ─┐
+Doc 2 → Model A extract  ├→ Judge synthesizes all results
+Doc 3 → Model A extract ─┘
+```
+- Each subtask can be handled by a different model
+- Suits: subtasks requiring different specialties (R1 for math, V3 for text)
+
+### Paradigm 2: Efficient Model Preprocesses + Multiple Models Only at Analysis ⭐ (Verdex picks this)
+
+```
+Document → Efficient model (V3) uniformly splits/refines/structures → clean structured data
+                                                                       ↓
+                                                             Multiple models each analyze → Judge synthesizes
+```
+- Standardized data processing (one model, one standard — fast and consistent)
+- Diversified analysis (multi-perspective reasoning)
+- Suits: Verdex's scenario (document → knowledge → analysis)
+
+### Verdex's Choice: Paradigm 2
+
+Reasons:
+- Data processing is "grunt work" (read the full text, fix typos, extract by schema) — one efficient model does it fast and consistently
+- Analysis is "reasoning work" (is this strategy sound? will the bubble burst?) — multiple models each reasoning is more valuable
+- The split data is refined enough (70k-word original → 5k-word structured knowledge) that the analysis models don't need to read the original
+
+---
+
+## 2. Three-Stage Fusion Architecture
+
+### Overall Flow
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│ 阶段 1：数据处理（Data Processing）                   │
-│   📎 文档 → [清洗] → 结构化提取（Extract/Map-Reduce）│
-│   模型：自动选高效模型（第一个 Provider 或 .env 指定） │
-│   产出：结构化知识单元（JSON）                        │
-│   配置：Schema、清洗开关、Map-Reduce 触发             │
+│ Stage 1: Data Processing                             │
+│   📎 Document → [clean] → structured extraction      │
+│       (Extract/Map-Reduce)                           │
+│   Model: auto-select an efficient model (first        │
+│       Provider or specified via .env)                │
+│   Output: structured knowledge units (JSON)          │
+│   Config: Schema, clean toggle, Map-Reduce trigger   │
 ├──────────────────────────────────────────────────────┤
-│ 阶段 2：多模型分析（Multi-Model Analysis）            │
-│   阶段1的产出 → Panel 并行分析 → 各自见解             │
-│   模型：用户选的多个 Provider                         │
-│   产出：多个分析结果                                  │
-│   配置：Panel 选择、角色模板                          │
-│   ⚠️ 只有一个模型时自动跳过此阶段                     │
+│ Stage 2: Multi-Model Analysis                        │
+│   Stage 1 output → Panel parallel analysis →         │
+│       individual insights                            │
+│   Model: user-selected multiple Providers            │
+│   Output: multiple analysis results                  │
+│   Config: Panel selection, role template             │
+│   ⚠️ Auto-skipped when only one model is available   │
 ├──────────────────────────────────────────────────────┤
-│ 阶段 3：Judge 综合（Synthesis）                       │
-│   阶段2的所有见解 → Judge 汇总 → 最终结论             │
-│   模型：用户选的 Judge Provider                       │
-│   产出：四段裁决（共识/分歧/盲点/裁决）或结构化 JSON   │
-│   配置：Judge 模型、综合方式（裁判提示词）             │
+│ Stage 3: Judge Synthesis                             │
+│   All Stage 2 insights → Judge summarizes →          │
+│       final conclusion                               │
+│   Model: user-selected Judge Provider                │
+│   Output: four-part Verdict (consensus / dissent /   │
+│       blind spots / verdict) or structured JSON      │
+│   Config: Judge model, synthesis method              │
+│       (judge prompt)                                 │
 └──────────────────────────────────────────────────────┘
 ```
 
-### 各阶段的详细设计
+### Detailed Design of Each Stage
 
-#### 阶段 1：数据处理
+#### Stage 1: Data Processing
 
-- **输入**：用户上传的文档（📎 附件）+ 用户问题
-- **处理**：
-  - 若清洗开启：先 ASR 清洗（修错别字）
-  - 若单次够：Extract 单次抽取（按 Schema）
-  - 若超阈值：Map-Reduce（每份并行抽取 → Reduce 合并）
-- **产出**：结构化 JSON（如思维模型库）
-- **模型**：自动选第一个 Provider（或 .env 的 `VITE_VERDEX_DATA_MODEL`）
-- **配置项**：Schema 选择、清洗开关
-- **不需要**：Panel、裁判提示词、角色
+- **Input**: user-uploaded documents (📎 attachments) + user question
+- **Processing**:
+  - If cleaning is on: ASR cleaning first (fix typos)
+  - If a single pass suffices: Extract single-pass extraction (by Schema)
+  - If over threshold: Map-Reduce (extract each in parallel → Reduce merge)
+- **Output**: structured JSON (e.g. mental-model library)
+- **Model**: auto-select the first Provider (or `VITE_VERDEX_DATA_MODEL` from .env)
+- **Config items**: Schema selection, clean toggle
+- **Not needed**: Panel, judge prompt, roles
 
-#### 阶段 2：多模型分析
+#### Stage 2: Multi-Model Analysis
 
-- **输入**：阶段 1 的结构化产出（+ 用户问题）
-- **处理**：每个 Panel 模型独立分析这份结构化数据，给出见解
-- **产出**：多个分析结果（每个模型一份）
-- **模型**：用户选的多个 Provider（≥2 才有意义）
-- **配置项**：Panel 选择、角色模板（批判性/第一性原理/魔鬼代言人）
-- **自动跳过条件**：可用 Provider 数 < 2 时跳过
-- **不需要**：Schema、清洗（阶段 1 已处理）
+- **Input**: Stage 1's structured output (+ user question)
+- **Processing**: each Panel model independently analyzes this structured data and gives an insight
+- **Output**: multiple analysis results (one per model)
+- **Model**: user-selected multiple Providers (≥2 to be meaningful)
+- **Config items**: Panel selection, role template (critical / first-principles / devil's advocate)
+- **Auto-skip condition**: skip when available Provider count < 2
+- **Not needed**: Schema, cleaning (already handled in Stage 1)
 
-#### 阶段 3：Judge 综合
+#### Stage 3: Judge Synthesis
 
-- **输入**：阶段 2 的所有 Panel 分析结果
-- **处理**：Judge 综合成共识/分歧/盲点/裁决
-- **产出**：四段裁决（verdict）或结构化 JSON（extract）
-- **模型**：用户选的 Judge Provider
-- **配置项**：Judge 模型、裁判提示词
-- **若阶段 2 跳过**：Judge 直接基于阶段 1 的产出综合（单模型模式）
+- **Input**: all Panel analysis results from Stage 2
+- **Processing**: Judge synthesizes into consensus / dissent / blind spots / verdict
+- **Output**: four-part Verdict (`verdict`) or structured JSON (`extract`)
+- **Model**: user-selected Judge Provider
+- **Config items**: Judge model, judge prompt
+- **If Stage 2 is skipped**: Judge synthesizes directly on Stage 1's output (single-model mode)
 
 ---
 
-## 3. 单模型自动降级
+## 3. Single-Model Automatic Fallback
 
-### 核心规则
+### Core Rule
 
 ```
-可用 Provider 数 == 1（如只有 DeepSeek V3）：
-  阶段 1：V3 处理文档 → 结构化数据
-  阶段 2：跳过（只有一个模型，Panel 并行无意义）
-  阶段 3：V3 直接综合（或直接用阶段 1 产出作为最终结果）
-  → UI 只显示：Schema、清洗
-  → 隐藏：Panel 选择、裁判提示词、角色模板
+Available Provider count == 1 (e.g. only DeepSeek V3):
+  Stage 1: V3 processes documents → structured data
+  Stage 2: skipped (only one model — Panel parallel is meaningless)
+  Stage 3: V3 synthesizes directly (or use Stage 1 output as the final result)
+  → UI shows only: Schema, clean
+  → Hidden: Panel selection, judge prompt, role template
 
-可用 Provider 数 ≥ 2（如 V3 + R1 + Qwen）：
-  阶段 1：V3（高效）处理文档 → 结构化数据
-  阶段 2：V3/R1/Qwen 各自分析 → 多视角见解
-  阶段 3：Judge（V3 或 R1）综合 → 最终结论
-  → UI 显示全部选项
+Available Provider count ≥ 2 (e.g. V3 + R1 + Qwen):
+  Stage 1: V3 (efficient) processes documents → structured data
+  Stage 2: V3/R1/Qwen each analyze → multi-perspective insights
+  Stage 3: Judge (V3 or R1) synthesizes → final conclusion
+  → UI shows all options
 ```
 
-### 降级后的配置栏（单模型）
+### Fallback Config Bar (Single-Model)
 
 ```
 ┌──────────────────────────────────────┐
-│ 📎 文档  Schema: [思维模型库 ▼]      │
-│ □ 清洗  □ 记忆                       │
-│ 模型：DeepSeek V3                    │
+│ 📎 Document  Schema: [Mental-Model ▼]│
+│ □ Clean  □ Memory                    │
+│ Model: DeepSeek V3                   │
 └──────────────────────────────────────┘
 ```
-干净——没有 Panel/Judge/裁判提示词（一个模型无需多模型调度）。
+Clean — no Panel/Judge/judge prompt (a single model needs no multi-model scheduling).
 
-### 完整配置栏（多模型）
+### Full Config Bar (Multi-Model)
 
 ```
 ┌──────────────────────────────────────────────────┐
-│ 📎 文档  Schema: [思维模型库 ▼]  □ 清洗          │
-│ 数据处理模型：[DeepSeek V3 ▼]                    │
-│ Panel：[V3 ✓] [R1 ✓] [Qwen ✓]  角色：[可选]      │
-│ Judge：[DeepSeek V3 ▼]  裁判提示词：[默认 ▼]      │
-│ □ 记忆                                           │
+│ 📎 Document  Schema: [Mental-Model ▼]  □ Clean   │
+│ Data Processing Model: [DeepSeek V3 ▼]           │
+│ Panel: [V3 ✓] [R1 ✓] [Qwen ✓]  Roles: [optional] │
+│ Judge: [DeepSeek V3 ▼]  Judge Prompt: [Default ▼]│
+│ □ Memory                                         │
 └──────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 4. 任务类型（顶层路由）
+## 4. Task Type (Top-Level Routing)
 
-用户先选"要干什么"，系统自动配置三阶段：
+The user first picks "what to do", and the system auto-configures the three stages:
 
-| 任务类型 | 阶段1 | 阶段2 | 阶段3 | 适合场景 |
+| Task Type | Stage 1 | Stage 2 | Stage 3 | Suitable Scenario |
 |---|---|---|---|---|
-| **文档提取** | ✅ 提取 | 跳过 | 跳过（阶段1产出即最终） | 只要结构化 JSON |
-| **文档分析** | ✅ 提取 | ✅ 多模型分析（≥2模型时） | ✅ Judge 综合 | 先提取再深度分析 |
-| **快速问答** | 跳过 | ✅ Panel 并行 | ✅ Judge 综合 | 不需要文档，直接问 |
+| **Document Extraction** | ✅ Extract | Skip | Skip (Stage 1 output is final) | Just need structured JSON |
+| **Document Analysis** | ✅ Extract | ✅ Multi-model analysis (when ≥2 models) | ✅ Judge synthesis | Extract first, then deep analysis |
+| **Quick Q&A** | Skip | ✅ Panel parallel | ✅ Judge synthesis | No document needed, just ask |
 
-### 路由逻辑
+### Routing Logic
 
 ```
 taskType = "document_extract":
-  阶段1 → 结构化 JSON（最终产出）
-  阶段2/3 跳过
+  Stage 1 → structured JSON (final output)
+  Stage 2/3 skipped
 
 taskType = "document_analysis":
-  阶段1 → 结构化 JSON（中间产出）
-  阶段2 → 多模型分析（单模型时跳过，阶段1产出直接给阶段3）
-  阶段3 → Judge 综合（最终产出）
+  Stage 1 → structured JSON (intermediate output)
+  Stage 2 → multi-model analysis (skipped on single model; Stage 1 output goes straight to Stage 3)
+  Stage 3 → Judge synthesis (final output)
 
 taskType = "quick_qa":
-  阶段1 跳过
-  阶段2 → Panel 并行（单模型时直接答）
-  阶段3 → Judge 综合
+  Stage 1 skipped
+  Stage 2 → Panel parallel (single model answers directly)
+  Stage 3 → Judge synthesis
 ```
 
 ---
 
-## 5. 与现有能力的关系（不推翻重写）
+## 5. Relationship to Existing Capabilities (No Rewrite)
 
-三阶段架构**不替换**现有能力，而是**重新组织调用顺序**：
+The three-stage architecture does **not replace** existing capabilities; it **reorganizes the call order**:
 
-| 现有能力 | 在三阶段中的位置 |
+| Existing Capability | Position in the Three Stages |
 |---|---|
-| Extract（schema 抽取） | 阶段 1 的核心 |
-| Map-Reduce（多文档并行） | 阶段 1 的扩展（文档多时） |
-| ASR 清洗 | 阶段 1 的前置 |
-| Panel（多模型并行） | 阶段 2 |
-| Judge（四段裁决） | 阶段 3 |
-| 裁判提示词 | 阶段 3 的配置 |
-| 角色模板 | 阶段 2 的配置 |
-| 多轮记忆 | 跨阶段（每阶段都带历史） |
-| 分层摘要（1b） | 跨阶段 |
+| Extract (schema extraction) | Core of Stage 1 |
+| Map-Reduce (multi-document parallel) | Extension of Stage 1 (when there are many docs) |
+| ASR cleaning | Pre-step of Stage 1 |
+| Panel (multi-model parallel) | Stage 2 |
+| Judge (four-part Verdict) | Stage 3 |
+| Judge prompt | Config of Stage 3 |
+| Role template | Config of Stage 2 |
+| Multi-turn memory | Cross-stage (each stage carries history) |
+| Hierarchical summary (1b) | Cross-stage |
 
-**底层 API 调用不变**（streamChat / runSingleJudge / runMapReduce 都保留），变的是"谁在什么时候调谁"。
+**The underlying API calls don't change** (`streamChat` / `runSingleJudge` / `runMapReduce` are all kept); what changes is "who calls whom, and when".
 
 ---
 
-## 6. 配置项重新设计
+## 6. Redesigned Config Items
 
-### 替代 outputMode
+### Replacing outputMode
 
-现在的 `outputMode: "verdict" | "extract" | "mapreduce"` 替换为：
+The current `outputMode: "verdict" | "extract" | "mapreduce"` is replaced with:
 
 ```ts
 taskType: "document_extract" | "document_analysis" | "quick_qa"
 ```
 
-### MoASessionConfig 重构
+### MoASessionConfig Refactor
 
 ```ts
 interface MoASessionConfig {
   taskType: "document_extract" | "document_analysis" | "quick_qa";
 
-  // 阶段 1 配置（文档提取）
-  extractSchemaId: string | null;       // 用哪个 schema
-  cleanAttachments: boolean;             // ASR 清洗
-  // Map-Reduce 自动触发（复用 shouldMapReduce）
+  // Stage 1 config (document extraction)
+  extractSchemaId: string | null;       // which schema to use
+  cleanAttachments: boolean;             // ASR cleaning
+  // Map-Reduce auto-triggers (reuse shouldMapReduce)
 
-  // 阶段 2 配置（多模型分析）
-  panelIds: string[];                    // 哪些模型参与分析
-  panelRoles: Record<string, string>;    // 各 Panel 的角色
+  // Stage 2 config (multi-model analysis)
+  panelIds: string[];                    // which models participate in analysis
+  panelRoles: Record<string, string>;    // role of each Panel
 
-  // 阶段 3 配置（Judge 综合）
-  judgeIds: string[];                    // Judge 模型
-  judgePromptId: string | null;          // 综合方式
+  // Stage 3 config (Judge synthesis)
+  judgeIds: string[];                    // Judge model
+  judgePromptId: string | null;          // synthesis method
 
-  // 跨阶段
+  // Cross-stage
   memoryEnabled: boolean;
 }
 ```
 
-### UI 动态显示规则
+### UI Dynamic Display Rule
 
 ```
-单模型（providers.length === 1）：
-  只显示 taskType + 阶段1配置（Schema/清洗）
-  隐藏 Panel/Judge/裁判提示词/角色
+Single-model (providers.length === 1):
+  Show only taskType + Stage 1 config (Schema/clean)
+  Hide Panel/Judge/judge prompt/roles
 
-多模型（providers.length >= 2）：
-  taskType = document_extract：显示阶段1配置
-  taskType = document_analysis：显示全部三阶段配置
-  taskType = quick_qa：显示阶段2/3配置，隐藏阶段1
+Multi-model (providers.length >= 2):
+  taskType = document_extract: show Stage 1 config
+  taskType = document_analysis: show all three stages' config
+  taskType = quick_qa: show Stage 2/3 config, hide Stage 1
 ```
 
 ---
 
-## 7. 向后兼容
+## 7. Backward Compatibility
 
-### 老 session 迁移
+### Old Session Migration
 
 ```ts
-// outputMode → taskType 映射
-"verdict"    → "quick_qa"        // 原来的四段裁决 = 快速问答
-"extract"    → "document_extract" // 原来的 schema 抽取 = 文档提取
-"mapreduce"  → "document_extract" // Map-Reduce 是文档提取的子模式（自动触发）
+// outputMode → taskType mapping
+"verdict"    → "quick_qa"        // original four-part verdict = quick Q&A
+"extract"    → "document_extract" // original schema extraction = document extraction
+"mapreduce"  → "document_extract" // Map-Reduce is a sub-mode of document extraction (auto-triggered)
 ```
 
-normalizeSessionConfig 里做这个映射，老 session 无感升级。
+This mapping is done inside `normalizeSessionConfig`, so old sessions get a seamless upgrade.
 
-### Map-Reduce 不再是一个 taskType
+### Map-Reduce Is No Longer a taskType
 
-Map-Reduce 降级为"文档提取任务在文档多时的自动优化"（复用 shouldMapReduce），不再是用户显式选择的模式。
+Map-Reduce is demoted to "an automatic optimization of the document-extraction task when there are many documents" (reusing `shouldMapReduce`), and is no longer a mode the user explicitly selects.
 
 ---
 
-## 8. 实现计划（分步）
+## 8. Implementation Plan (Step by Step)
 
-### 步骤 1：类型层重构
-- `taskType` 替代 `outputMode`
-- `MoASessionConfig` 按三阶段重组
-- 向后兼容映射
+### Step 1: Type-Layer Refactor
+- `taskType` replaces `outputMode`
+- `MoASessionConfig` reorganized by the three stages
+- Backward-compatibility mapping
 
-### 步骤 2：UI 重构（MoAConfigBar）
-- 顶层 taskType 选择（文档提取 / 文档分析 / 快速问答）
-- 按模型数 + taskType 动态显示/隐藏配置项
-- 单模型时极简配置栏
+### Step 2: UI Refactor (MoAConfigBar)
+- Top-level `taskType` selection (Document Extraction / Document Analysis / Quick Q&A)
+- Dynamically show/hide config items by model count + taskType
+- Minimal config bar for single-model mode
 
-### 步骤 3：引擎路由重构（runMoaSynthesis）
-- 按 taskType 路由到三阶段
-- 阶段间数据传递（阶段1产出 → 阶段2输入）
-- 单模型自动跳过阶段2
+### Step 3: Engine Routing Refactor (runMoaSynthesis)
+- Route to the three stages by taskType
+- Data passing between stages (Stage 1 output → Stage 2 input)
+- Auto-skip Stage 2 in single-model mode
 
-### 步骤 4：文档分析任务的完整链路 ✅ 已完成（2026-07-24）
-- 阶段1（提取）→ 阶段2（Panel 分析提取结果）→ 阶段3（Judge 综合）
-- 这是新能力（之前做不到"先提取再分析"）
-- 实测验证：V3+R1 双模型，V3 先提取思维模型库 JSON → R1/V3 各自分析 → 四段裁决
+### Step 4: Complete Pipeline for the Document-Analysis Task ✅ Done (2026-07-24)
+- Stage 1 (extract) → Stage 2 (Panel analyzes the extracted results) → Stage 3 (Judge synthesis)
+- This is a new capability (previously couldn't "extract then analyze")
+- Verified empirically: V3+R1 dual model — V3 first extracts the mental-model library JSON → R1/V3 each analyze → four-part Verdict
 
-### 步骤 4b：配置项简化（让用户直接上手）✅ 已完成（2026-07-24）
+### Step 4b: Config Simplification (Let Users Get Started Immediately) ✅ Done (2026-07-24)
 
-**问题**：「任务」「结构」「裁判提示词」三个选项同时显示，用户不知道什么关系、什么时候用哪个。
+**Problem**: "Task", "Structure", and "Judge Prompt" are shown simultaneously, and users don't know how they relate or which to use when.
 
-**根因**：「结构」（Schema）和「裁判提示词」是**互斥**的——文档任务用结构，问答任务用裁判提示词。但 UI 不体现这种互斥，导致用户困扰。
+**Root cause**: "Structure" (Schema) and "Judge Prompt" are **mutually exclusive** — document tasks use Structure, Q&A tasks use Judge Prompt. But the UI doesn't reflect this exclusivity, which confuses users.
 
-**解决：按任务严格互斥显示 + 标签直白化**
+**Solution: strictly mutually-exclusive display by task + make labels self-explanatory**
 
-| 任务 | 显示的配置 | 隐藏的配置 |
+| Task | Config Shown | Config Hidden |
 |---|---|---|
-| 📄 文档提取 | 提取结构（Schema） | 裁判提示词、Panel、角色 |
-| 📊 文档分析 | 提取结构 + 综合方式 | — |
-| 💬 快速问答 | 综合方式（裁判提示词） | 提取结构、清洗 |
+| 📄 Document Extraction | Extraction Structure (Schema) | Judge Prompt, Panel, Roles |
+| 📊 Document Analysis | Extraction Structure + Synthesis Method | — |
+| 💬 Quick Q&A | Synthesis Method (Judge Prompt) | Extraction Structure, Clean |
 
-**标签改名**（让用户一看就懂）：
-- 「结构」→ **「提取结构」**（明确这是提取阶段用的）
-- 「裁判提示词」→ **「综合方式」**（明确这是综合阶段用的）
-- 两者从不同时出现在非 document_analysis 任务里
+**Label renames** (so users understand at a glance):
+- "Structure" → **"Extraction Structure"** (clarify it's used in the extraction stage)
+- "Judge Prompt" → **"Synthesis Method"** (clarify it's used in the synthesis stage)
+- The two never appear together in non-document_analysis tasks
 
-**单模型降级**：只有 1 个 Provider 时，只显示 2 个任务（文档提取/快速问答），隐藏所有多模型配置。
+**Single-model fallback**: with only 1 Provider, only 2 tasks are shown (Document Extraction / Quick Q&A), and all multi-model config is hidden.
 
-### 步骤 5：测试 + 验证 + 文档更新
+### Step 5: Testing + Verification + Doc Update
 
 ---
 
-## 9. 不做（留后续）
+## 9. Not Doing (Deferred)
 
-- 阶段间的人工审核（用户检查阶段1产出再决定是否进阶段2）
-- 阶段2 的模型动态分配（根据子任务类型自动选模型）
-- 阶段间的缓存（阶段1结果缓存，改问题不重新提取）
-- 任务类型的自定义（用户自建流水线模板）
-- **Python 代码执行能力（Code Interpreter）**：类似 kimi/ChatGPT 的代码沙盒，用于精确数值计算、数据分析、可视化。详见下方"未来扩展"。
+- Manual review between stages (user checks Stage 1 output before deciding whether to enter Stage 2)
+- Dynamic model assignment in Stage 2 (auto-select model based on subtask type)
+- Caching between stages (cache Stage 1 results; changing the question doesn't re-extract)
+- Custom task types (users build their own pipeline templates)
+- **Python code execution (Code Interpreter)**: a code sandbox like kimi/ChatGPT, for precise numerical computation, data analysis, and visualization. See "Future Extension" below.
 
-### 未来扩展：Python 代码执行能力
+### Future Extension: Python Code Execution
 
-**背景**：kimi 等 Code Interpreter 用 Python 实现精确计算、数据可视化、JSON 序列化校验。Verdex 目前是纯前端 LLM 编排，无代码执行能力。
+**Background**: kimi and other Code Interpreters use Python to implement precise computation, data visualization, and JSON serialization validation. Verdex is currently pure front-end LLM orchestration with no code execution capability.
 
-**为什么现在不加**：
-1. Verdex 核心价值是多模型编排（Panel+Judge+Map-Reduce），不是代码执行——定位不同
-2. 前端加 Python 沙盒非常重：Pyodide（WASM，~10MB+）或 Tauri Rust 侧调 Python（需用户装 Python）
-3. 当前场景（文档→结构化 JSON）不需要精确计算——提取思维模型/因果链是"理解+组织"，不是"算数"
-4. 现有轻量校验（validateExtract）够用——检查 JSON 结构合法性，不需要 Python
+**Why not add it now**:
+1. Verdex's core value is multi-model orchestration (Panel+Judge+Map-Reduce), not code execution — different positioning
+2. Adding a Python sandbox to the front end is very heavy: Pyodide (WASM, ~10MB+) or invoking Python from the Tauri Rust side (requires the user to install Python)
+3. The current scenario (document → structured JSON) doesn't need precise computation — extracting mental models / causal chains is "understanding + organization", not "arithmetic"
+4. The existing lightweight validation (`validateExtract`) is enough — it checks JSON structural validity without needing Python
 
-**什么时候需要加**：
-- 从文档提取财务数据后需要精确计算（增长率、比率、汇总）
-- 生成图表（思维模型关系图、数据趋势图）
-- 对提取的 JSON 做统计分析（"7 份文档里出现频率最高的模型"）
-- 需要确保 JSON 100% 语法合法（Python json.load 严格校验）
+**When it would be needed**:
+- Precise computation after extracting financial data from documents (growth rates, ratios, rollups)
+- Generating charts (mental-model relationship graphs, data-trend plots)
+- Statistical analysis on extracted JSON ("the most frequent model across 7 documents")
+- Ensuring JSON is 100% syntactically valid (strict validation via Python `json.load`)
 
-**如果要加，怎么加**（两种方案）：
+**How to add it, if needed** (two options):
 
-| 方案 | 实现 | 优点 | 缺点 |
+| Option | Implementation | Pros | Cons |
 |---|---|---|---|
-| **A. Tauri Rust 侧执行** | LLM 生成 Python 代码 → Tauri Rust subprocess 调 Python → 返回结果 | 能力完整（pandas/numpy/matplotlib 全可用）| 用户需装 Python；安全沙盒（防恶意代码）；跨平台兼容 |
-| **B. Pyodide（WASM）** | 前端加载 Pyodide → 在浏览器/WASM 里跑 Python | 无需用户装 Python；安全（沙盒隔离）| 包体大（~10MB）；加载慢；部分库不支持；性能受限 |
+| **A. Execute on Tauri Rust side** | LLM generates Python code → Tauri Rust subprocess calls Python → returns result | Full capability (pandas/numpy/matplotlib all available) | User must install Python; secure sandbox (against malicious code); cross-platform compatibility |
+| **B. Pyodide (WASM)** | Front end loads Pyodide → runs Python in the browser/WASM | No Python install needed for user; safe (sandbox isolation) | Large bundle size (~10MB); slow to load; some libs unsupported; limited performance |
 
-**推荐方案 A（Tauri Rust 侧）**——能力完整，且 Verdex 已有 Tauri Rust 后端（fs/http 插件已注册），加 subprocess 调用是自然扩展。
+**Recommended: Option A (Tauri Rust side)** — full capability, and Verdex already has a Tauri Rust backend (fs/http plugins are registered), so adding a subprocess call is a natural extension.
 
-**实现要点**（方案 A）：
-1. Rust 侧加 `tauri-plugin-shell` 或自定义 command（`invoke("run_python", { code })`）
-2. 安全沙盒：限制可 import 的库、禁止文件系统/网络访问、超时 kill
-3. 前端：LLM 生成 Python 代码 → 调 Rust 执行 → 结果注入回 LLM（类似 Code Interpreter 的"生成→执行→反馈"循环）
-4. 新任务类型：`data_analysis`（提取→计算→可视化）
+**Implementation notes** (Option A):
+1. On the Rust side, add `tauri-plugin-shell` or a custom command (`invoke("run_python", { code })`)
+2. Secure sandbox: restrict importable libraries, forbid file-system/network access, kill on timeout
+3. Front end: LLM generates Python code → calls Rust to execute → result is injected back into the LLM (similar to Code Interpreter's generate→execute→feedback loop)
+4. New task type: `data_analysis` (extract → compute → visualize)
 
 ---
 
-## 10. 设计决策记录
+## 10. Design Decision Record
 
-| 决策 | 选择 | 理由 |
+| Decision | Choice | Rationale |
 |---|---|---|
-| 编排范式 | 范式 2（高效预处理 + 分析阶段多模型） | 数据处理标准化，分析多样化 |
-| 多模型介入时机 | 分析阶段（阶段2） | 数据处理是体力活用单模型，分析是脑力活用多模型 |
-| 单模型行为 | 自动跳过多模型阶段 | 一个模型并行无意义 |
-| taskType 替代 outputMode | 是 | outputMode 混了两个维度（产出形态 vs 处理方式） |
-| Map-Reduce 定位 | 文档提取的自动优化（非独立模式） | 用户不需要手动选 Map-Reduce |
-| 三阶段复用现有能力 | 是 | 不推翻重写，重新组织调用顺序 |
+| Orchestration paradigm | Paradigm 2 (efficient preprocessing + multiple models at analysis) | Standardized data processing, diversified analysis |
+| When multiple models intervene | Analysis stage (Stage 2) | Data processing is grunt work → single model; analysis is reasoning work → multiple models |
+| Single-model behavior | Auto-skip the multi-model stage | A single model running in parallel is meaningless |
+| taskType replaces outputMode | Yes | outputMode mixed two dimensions (output form vs. processing method) |
+| Map-Reduce positioning | Auto-optimization of document extraction (not a standalone mode) | Users don't need to manually pick Map-Reduce |
+| Three stages reuse existing capabilities | Yes | No rewrite — just reorganize the call order |
 
 ---
 
-*设计需求文档版本 1.0 · 2026-07-24 · 待审批后进入实现*
+*Design requirements document version 1.0 · 2026-07-24 · Pending approval before moving to implementation*

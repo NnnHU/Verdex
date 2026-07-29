@@ -1,117 +1,117 @@
-# Verdex 交接文档
+# Verdex Handoff Document
 
-> 写给一个**完全没有上下文的新会话**。读本文件 + 按需查看子文档，即可接手开发。
-> v0.1.3 · 2026-07-29 · 核心功能 + Knowledge Vault + 步骤式配置栏全部完成
+> Written for a **brand-new session with zero context**. Read this file + consult the sub-documents as needed, and you can take over development.
+> v0.1.3 · 2026-07-29 · Core features + Knowledge Vault + stepped config bar all complete
 
 ---
 
-## Verdex 是什么
+## What Is Verdex
 
-纯本地端、无服务器的**知识精炼引擎**（Tauri 2.0 + React 18 + TS + Tailwind v4）。
+A fully local, serverless **knowledge refinement engine** (Tauri 2.0 + React 18 + TS + Tailwind v4).
 
-### 三种任务类型（核心主线）
+### Three Task Types (Core Mainline)
 
-| 任务 | 做什么 | 流程 |
+| Task | What It Does | Flow |
 |---|---|---|
-| 📄 **文档提取** | 文档 → 结构化 JSON | 文档 → [清洗] → Schema 提取 → JSON |
-| 📊 **文档分析** | 先提取再深度分析 | 阶段1提取 → 阶段2多模型分析 → 阶段3 Judge综合 |
-| 💬 **快速问答** | 多模型回答问题 | 问题 → Panel并行 → Judge四段裁决 |
+| 📄 **Document Extraction** | Document → structured JSON | Document → [cleaning] → Schema extraction → JSON |
+| 📊 **Document Analysis** | Extract first, then deep analysis | Stage 1 extraction → Stage 2 multi-model analysis → Stage 3 Judge synthesis |
+| 💬 **Quick Q&A** | Multiple models answer a question | Question → parallel Panel → Judge four-section verdict |
 
-### Knowledge Vault（独立知识仓库）
+### Knowledge Vault (Standalone Knowledge Repository)
 
-侧边栏独立入口，资产管理：浏览/搜索/分类/引用/导出/编辑。
+An independent sidebar entry for asset management: browse / search / categorize / reference / export / edit.
 
-### 配置栏（步骤式）
+### Config Bar (Stepped)
 
-5 步引导流程：❶任务 → ❷文档 → ❸提取结构 → ❹分析配置 → ❺选项。按 taskType 条件显示。
+A 5-step guided flow: ❶ Task → ❷ Document → ❸ Extraction structure → ❹ Analysis config → ❺ Options. Conditionally displayed based on taskType.
 
-## 当前状态（2026-07-29）
+## Current Status (2026-07-29)
 
-**所有核心功能 + Knowledge Vault 5 阶段 + 步骤式配置栏全部完成。84/84 测试通过。tsc 零错误。build 成功。**
+**All core features + Knowledge Vault 5 stages + stepped config bar are fully complete. 84/84 tests passing. tsc zero errors. Build successful.**
 
-### 紧急待办：P0 平台全面测试
+### Urgent Todo: P0 Platform-Wide Testing
 
-用户正在做 P0 测试（端到端验证三种任务 + Vault + 导出 + 配置）。**测试发现的问题优先修复，不要加新功能。**
+The user is currently running P0 testing (end-to-end verification of all three tasks + Vault + export + config). **Fix any issues found in testing first — do not add new features.**
 
-### P0 测试后下一步（按 MULTI_MODEL_REVIEW.md 优先级）
+### Next Steps After P0 Testing (by MULTI_MODEL_REVIEW.md priority)
 
-1. P1: 建立 Benchmark（单模型 vs 多模型对比）
-2. P2: Trace Dump（中间产物持久化）
-3. P3: 消费端验证（Claude Skill 实际使用）
-4. 不做: IR Schema 设计（等数据涌现）、Graphify 代码引入
+1. P1: Build a Benchmark (single-model vs multi-model comparison)
+2. P2: Trace Dump (persist intermediate artifacts)
+3. P3: Consumer validation (actual Claude Skill usage)
+4. Not doing: IR Schema design (wait for data to emerge), Graphify code integration
 
-## 关键概念
+## Key Concepts
 
-| 概念 | 说明 |
+| Concept | Description |
 |---|---|
-| **taskType** | session 级路由（document_extract/document_analysis/quick_qa） |
-| **outputKind** | 引擎内部（verdict/extract），JudgeSpec 和 parseJudgeResponse 用 |
-| **Panel（专家）** | 多个模型并行分析 |
-| **Judge（裁决）** | 综合 Panel 结果的模型 |
-| **Schema（提取结构）** | 文档提取的目标 JSON 结构模板 |
-| **KnowledgeAsset** | 持久化的知识资产（含 consensus/divergences/blindspots/verdict） |
-| **Map-Reduce** | 大文档自动切分并行（单次优先，超大才触发） |
+| **taskType** | Session-level routing (document_extract/document_analysis/quick_qa) |
+| **outputKind** | Engine-internal (verdict/extract), used by JudgeSpec and parseJudgeResponse |
+| **Panel (experts)** | Multiple models analyzing in parallel |
+| **Judge (verdict)** | The model that synthesizes Panel results |
+| **Schema (extraction structure)** | The target JSON structure template for document extraction |
+| **KnowledgeAsset** | Persisted knowledge asset (contains consensus/divergences/blindspots/verdict) |
+| **Map-Reduce** | Auto-chunks large documents for parallelism (single-pass preferred, only triggers for very large docs) |
 
-## 技术原则
+## Technical Principles
 
-- **拒绝第三方 AI 框架**（LangChain/AutoGen），纯原生 TS Promise.all 调度
-- **纯本地**：API 请求从用户设备直接发送，不上传
-- **OpenAI 兼容**：支持任何 OpenAI 兼容 API + Anthropic 原生协议
-- **.env 种子**：首次启动自动填充 Provider（config.json 不存在时）
-- **单模型降级**：只有 1 个 Provider 时隐藏多模型配置
+- **No third-party AI frameworks** (LangChain/AutoGen) — pure native TS Promise.all scheduling
+- **Fully local**: API requests are sent directly from the user's device, nothing is uploaded
+- **OpenAI-compatible**: Supports any OpenAI-compatible API + Anthropic native protocol
+- **.env seed**: Auto-populates Providers on first launch (when config.json does not exist)
+- **Single-model fallback**: Hide multi-model config when only 1 Provider is available
 
-## 文档索引
+## Document Index
 
-| 文档 | 用途 |
+| Document | Purpose |
 |---|---|
-| [COMPLETED.md](./COMPLETED.md) | 已完成功能清单（模块 + 文件位置） |
-| [ROADMAP-NEXT.md](./ROADMAP-NEXT.md) | 下一步计划（按优先级） |
-| [PITFALLS.md](./PITFALLS.md) | ⚠️ 踩过的坑（9 个，绝对不要再踩） |
-| [../MULTI_MODEL_REVIEW.md](../MULTI_MODEL_REVIEW.md) | 六模型架构评审（含优先级 + Graphify 评估） |
-| [../KNOWLEDGE_VAULT_DESIGN.md](../KNOWLEDGE_VAULT_DESIGN.md) | 知识仓库设计（5 阶段全部完成） |
-| [../KNOWLEDGE_ASSET_ARCHITECTURE.md](../KNOWLEDGE_ASSET_ARCHITECTURE.md) | Knowledge Asset 战略方向 + 轻量版分支 |
-| [../THREE_STAGE_ARCHITECTURE.md](../THREE_STAGE_ARCHITECTURE.md) | 三阶段架构 + 未来扩展（Python 等） |
-| [../ORCHESTRATION_ROADMAP.md](../ORCHESTRATION_ROADMAP.md) | 编排路线图（已完成） |
+| [COMPLETED.md](./COMPLETED.md) | Completed feature list (modules + file locations) |
+| [ROADMAP-NEXT.md](./ROADMAP-NEXT.md) | Next-step plan (by priority) |
+| [PITFALLS.md](./PITFALLS.md) | ⚠️ Pitfalls encountered (9 in total — never step into them again) |
+| [../MULTI_MODEL_REVIEW.md](../MULTI_MODEL_REVIEW.md) | Six-model architecture review (includes priorities + Graphify assessment) |
+| [../KNOWLEDGE_VAULT_DESIGN.md](../KNOWLEDGE_VAULT_DESIGN.md) | Knowledge Vault design (all 5 stages complete) |
+| [../KNOWLEDGE_ASSET_ARCHITECTURE.md](../KNOWLEDGE_ASSET_ARCHITECTURE.md) | Knowledge Asset strategic direction + lite-version branch |
+| [../THREE_STAGE_ARCHITECTURE.md](../THREE_STAGE_ARCHITECTURE.md) | Three-stage architecture + future extensions (Python, etc.) |
+| [../ORCHESTRATION_ROADMAP.md](../ORCHESTRATION_ROADMAP.md) | Orchestration roadmap (complete) |
 
-## 快速接手
+## Quick Onboarding
 
-### 读代码顺序
-1. `src/types/moa.ts` — 数据结构（单一真相源）
-2. `src/components/MoAConfigBar.tsx` — 步骤式配置栏（taskType 路由）
-3. `src/hooks/useMoa.ts` — 状态机（send 函数核心）
-4. `src/services/moaEngine.ts` — 调度逻辑
-5. `src/components/VaultView.tsx` — 知识仓库
-6. `docs/MULTI_MODEL_REVIEW.md` — 架构评审和下一步
+### Code Reading Order
+1. `src/types/moa.ts` — Data structures (single source of truth)
+2. `src/components/MoAConfigBar.tsx` — Stepped config bar (taskType routing)
+3. `src/hooks/useMoa.ts` — State machine (send function is the core)
+4. `src/services/moaEngine.ts` — Scheduling logic
+5. `src/components/VaultView.tsx` — Knowledge Vault
+6. `docs/MULTI_MODEL_REVIEW.md` — Architecture review and next steps
 
-### 验证环境
+### Verification Environment
 ```bash
 cd C:\Users\k\Documents\project\no\lufei\Verdex
-# Node 路径（nvm）：
+# Node path (nvm):
 export PATH="/c/Users/k/AppData/Roaming/nvm/v24.13.1:/c/Program Files/nodejs:/c/Users/k/AppData/Roaming/npm:$PATH"
 npm install && npx tsc --noEmit && npm test && npm run dev
 ```
 
-### .env 配置
+### .env Configuration
 ```
-VITE_VERDEX_PROVIDER_*    = 第一模型（如 deepseek-v4-flash）
-VITE_VERDEX_PROVIDER2_*   = 第二模型（如 deepseek-v4-pro，多模型用）
+VITE_VERDEX_PROVIDER_*    = First model (e.g. deepseek-v4-flash)
+VITE_VERDEX_PROVIDER2_*   = Second model (e.g. deepseek-v4-pro, for multi-model)
 VITE_VERDEX_REQUEST_TIMEOUT_MS = 360000
 VITE_VERDEX_MAPREDUCE_FORCE = auto
 ```
 
-### config.json 位置
-`%APPDATA%\com.verdex.app\config.json`（用正斜杠路径访问，见 PITFALLS.md 坑 2）。
+### config.json Location
+`%APPDATA%\com.verdex.app\config.json` (access it with a forward-slash path — see PITFALLS.md pitfall 2).
 
-## 核心数据指标
-- **84/84 测试全过**
-- **tsc 零错误**
-- **build 成功**
-- **已 push GitHub**（至 commit `bb33693`，后续提交待 push）
+## Core Metrics
+- **84/84 tests passing**
+- **tsc zero errors**
+- **Build successful**
+- **Pushed to GitHub** (up to commit `bb33693`, subsequent commits pending push)
 
-## 文件结构
+## File Structure
 ```
 src/
-├── components/   ChatInput, MoAConfigBar(步骤式), SettingsModal, HelpModal,
+├── components/   ChatInput, MoAConfigBar (stepped), SettingsModal, HelpModal,
 │                 JudgeMessage, MapReduceMessage, JsonCardRenderer,
 │                 TurnTimer, PanelCollapseGroup, Sidebar, UserMessage,
 │                 VaultView, AssetExportButton
@@ -121,6 +121,6 @@ src/
 │                 schemaValidator, mapreduceStrategy, jsonToMd,
 │                 templateFilter, assetPacker, assetClassifier,
 │                 assetRecommender, exporters/
-├── types/        moa.ts（单一真相源）
+├── types/        moa.ts (single source of truth)
 └── i18n/         en.json, zh.json
 ```

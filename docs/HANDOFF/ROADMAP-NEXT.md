@@ -1,74 +1,74 @@
-# 下一步计划
+# Roadmap Next
 
-> 全部可选，无阻塞项。按优先级排列。
-> 最后更新：2026-07-29
+> All items are optional, with no blockers. Listed in priority order.
+> Last updated: 2026-07-29
 
-## 🔴 P0：平台全面测试（进行中）
+## 🔴 P0: Full-Platform Testing (in progress)
 
-用户正在端到端测试现有平台。测试发现的问题优先修复。
+The user is end-to-end testing the existing platform. Issues surfaced during testing are fixed first.
 
-覆盖范围：
-- 三种任务类型（document_extract/analysis/quick_qa）
-- Knowledge Vault 全部功能
-- 导出（Claude Skill/MD/JSON）
-- 配置栏步骤式流程
-- 体验功能（计时/Stop/进度/复制MD）
+Coverage scope:
+- All three task types (document_extract/analysis/quick_qa)
+- All Knowledge Vault features
+- Export (Claude Skill/MD/JSON)
+- Step-by-step flow in the config bar
+- Experience features (timer/Stop/progress/copy as MD)
 
-## 🔴 战略方向：验证核心假设
+## 🔴 Strategic Direction: Validate Core Hypotheses
 
-详见 [`../MULTI_MODEL_REVIEW.md`](../MULTI_MODEL_REVIEW.md)
+See [`../MULTI_MODEL_REVIEW.md`](../MULTI_MODEL_REVIEW.md)
 
-两个必须验证的假设：
-1. 结构化多步骤（extract→analyze→judge）是否比单次回答产出更好？
-2. 产出的知识资产是否可复用？
+Two hypotheses that must be validated:
+1. Does a structured multi-step flow (extract→analyze→judge) produce better output than a single-shot answer?
+2. Are the resulting knowledge assets reusable?
 
-## 🟡 P1：Benchmark
+## 🟡 P1: Benchmark
 
-- 收集 10-20 个真实案例
-- 单模型 vs 单模型多步骤 vs 多模型+Judge
-- 保存所有中间产物（Trace Dump）
-- 对比：覆盖率/幻觉率/可追溯性
+- Collect 10-20 real cases
+- Single-model vs single-model multi-step vs multi-model + Judge
+- Save all intermediate artifacts (Trace Dump)
+- Compare: coverage / hallucination rate / traceability
 
-## 🟡 P2：Trace Dump
+## 🟡 P2: Trace Dump
 
-- Panel/Judge 完整输出持久化
-- 为 IR Schema 涌现积累数据
+- Persist full Panel/Judge output
+- Accumulate data for the IR Schema to emerge
 
-## 🟢 P3：消费端验证
+## 🟢 P3: Consumer-Side Validation
 
-- Claude Skill 导出做到极致
-- 验证"Verdex 产出的 Skill 被 Claude 实际使用"
+- Take Claude Skill export to the extreme
+- Validate "the Skills produced by Verdex are actually used by Claude"
 
-## 🔵 Knowledge Vault 后续（设计文档已标注 🔜）
+## 🔵 Knowledge Vault Next Steps (design docs marked 🔜)
 
-- 临时分组（AI 跨分类组织）
-- 按来源/时间范围筛选
-- 资产编辑 categories（当前通过📁单独操作）
+- Ad-hoc grouping (AI organizes across categories)
+- Filter by source/time range
+- Edit asset categories (currently done one-by-one via 📁)
 
-## 🔵 扩展能力
+## 🔵 Extensibility
 
-- PDF/Word（需 Rust crate）
-- 会话搜索
-- IndexedDB 替代 localStorage
-- 动态阈值
+- PDF/Word (requires a Rust crate)
+- Session search
+- IndexedDB to replace localStorage
+- Dynamic threshold
 
-## 🔵 架构扩展（详见各设计文档）
+## 🔵 Architecture Extensions (see the respective design docs)
 
-- Python 代码执行（THREE_STAGE_ARCHITECTURE.md §9）
-- MCP Server（KNOWLEDGE_ASSET_ARCHITECTURE.md）
-- 轻量版（KNOWLEDGE_ASSET_ARCHITECTURE.md §6）
-- 阶间人工审核 / 模型动态分配 / 阶段缓存
+- Python code execution (THREE_STAGE_ARCHITECTURE.md §9)
+- MCP Server (KNOWLEDGE_ASSET_ARCHITECTURE.md)
+- Lightweight version (KNOWLEDGE_ASSET_ARCHITECTURE.md §6)
+- Inter-stage human review / dynamic model assignment / stage caching
 
-## ⚪ 原作者审计遗留（刻意保留）
+## ⚪ Original Author's Audit Leftovers (intentionally kept)
 
-- Anthropic system 双发（潜伏 bug）
-- DEFAULT_JUDGE_PROMPT 降级
-- toggleSidebar/clearError 未 memoize
-- SettingsModal 重复挂载
+- Anthropic system double-send (latent bug)
+- DEFAULT_JUDGE_PROMPT fallback
+- toggleSidebar/clearError not memoized
+- SettingsModal double-mount
 
-## ❌ 明确不做
+## ❌ Explicitly NOT Doing
 
-- Knowledge IR Schema 设计（等数据涌现）
-- Graphify 代码引入（思想已吸收）
-- Synthesizer + Arbitrator 分离（等验证）
-- Evidence→Inference→Claim→Decision 链路（过度设计）
+- Knowledge IR Schema design (wait for data to emerge)
+- Pulling in Graphify code (ideas already absorbed)
+- Separating Synthesizer + Arbitrator (awaiting validation)
+- Evidence→Inference→Claim→Decision chain (over-engineering)

@@ -1,272 +1,272 @@
-# Knowledge Vault 设计文档
+# Knowledge Vault Design Document
 
-> Verdex 的知识资产管理系统——从"会话内的临时产物"升级为"独立的、可管理的、智能的知识仓库"。
+> Verdex's knowledge asset management system — upgrading Knowledge Assets from "ephemeral by-products of a session" into "an independent, manageable, intelligent knowledge repository."
 >
-> 文档版本：0.1（设计讨论稿）· 2026-07-29 · 状态：方向确认，分阶段实现
+> Document version: 0.1 (design discussion draft) · 2026-07-29 · Status: direction confirmed, phased implementation
 
 ---
 
-## 0. 为什么需要 Knowledge Vault
+## 0. Why We Need Knowledge Vault
 
-### 当前问题
+### Current Problems
 
-Verdex 现在的 Knowledge Asset 是**附属于会话的副产品**：
-- 藏在 Settings → 📦 Assets tab 里（和 Provider/Schema 混在一起）
-- 只能列表 + 删除，看不到内容
-- 没有分类、搜索、组织
-- 用户不知道里面有什么，不知道何时该引用
+Verdex's current Knowledge Assets are **by-products that live inside sessions**:
+- Buried in Settings → 📦 Assets tab (mixed in with Provider/Schema)
+- Only list + delete is possible; the content is invisible
+- No categorization, search, or organization
+- Users don't know what's in there, or when they should reference it
 
-### 核心矛盾
+### Core Contradiction
 
-Knowledge Asset 是 Verdex 的**核心价值产出**（"The compiler for reusable AI knowledge"），但它在 UI 上被当成一个次要的设置项。
+Knowledge Assets are Verdex's **core value output** ("The compiler for reusable AI knowledge"), yet in the UI they're treated as a secondary settings item.
 
-### 解决方向
+### Direction
 
-把 Knowledge Asset 管理独立出来，成为 Verdex 的**一等公民**——一个独立的、功能完整的「知识仓库」（Knowledge Vault），有自己的入口、界面、分类体系、搜索能力、和 AI 辅助管理。
+Promote Knowledge Asset management to a **first-class citizen** of Verdex — an independent, fully-featured Knowledge Vault, with its own entry point, interface, category system, search capabilities, and AI-assisted management.
 
 ---
 
-## 1. 在 Verdex 架构中的位置
+## 1. Position in the Verdex Architecture
 
 ```
 ┌─ Verdex ──────────────────────────────────────────────┐
 │                                                        │
-│  侧边栏:                                               │
-│  ├─ 💬 会话 (对话/分析/提取 — 现有功能)                │
-│  ├─ 📚 知识仓库 (Knowledge Vault — 新的独立模块)       │
-│  │   ├─ 资产浏览 (列表/卡片/分类侧栏)                  │
-│  │   ├─ 资产详情 (完整内容/来源/元数据)                │
-│  │   ├─ 分类管理 (AI自动分类 + 人工调整)               │
-│  │   ├─ 搜索/筛选 (全文/分类/标签)                    │
-│  │   ├─ AI 使用建议 (针对当前问题推荐资产)             │
-│  │   ├─ 临时分组 (为具体问题组织相关资产)              │
-│  │   ├─ 导出 (Claude Skill/MD/JSON/MCP)               │
-│  │   └─ 引用管理 (哪些会话在用哪些资产)                │
-│  └─ ⚙️ 设置 (Provider/Schema/模板 — 精简后)          │
+│  Sidebar:                                              │
+│  ├─ 💬 Sessions (chat / analysis / extract — existing) │
+│  ├─ 📚 Knowledge Vault (Knowledge Vault — new module)  │
+│  │   ├─ Asset browsing (list / cards / category sidebar)│
+│  │   ├─ Asset detail (full content / sources / metadata)│
+│  │   ├─ Category management (AI auto-categorization + manual)│
+│  │   ├─ Search / filter (full-text / category / tags)  │
+│  │   ├─ AI usage suggestions (recommend assets for the current question)│
+│  │   ├─ Ad-hoc grouping (organize relevant assets for a specific question)│
+│  │   ├─ Export (Claude Skill/MD/JSON/MCP)             │
+│  │   └─ Reference management (which sessions use which assets)│
+│  └─ ⚙️ Settings (Provider/Schema/templates — trimmed)  │
 │                                                        │
-│  从 Settings 移除 📦 Assets tab → 搬到知识仓库         │
+│  Remove 📦 Assets tab from Settings → move to Knowledge Vault│
 └────────────────────────────────────────────────────────┘
 ```
 
-知识仓库是**双向的**：
-- **入库**：会话产出 → 自动/手动存入仓库
-- **出库**：仓库资产 → 引用到新会话 / 导出给外部工具
+The Knowledge Vault is **bidirectional**:
+- **Check-in**: session output → auto/manual ingest into the vault
+- **Check-out**: vault assets → reference in new sessions / export to external tools
 
 ---
 
-## 2. 核心功能设计
+## 2. Core Feature Design
 
-### 2.1 独立入口与界面
+### 2.1 Dedicated Entry Point and Interface
 
-侧边栏加「📚 知识仓库」按钮，点击切换到仓库主界面：
+Add a "📚 Knowledge Vault" button to the sidebar; clicking it switches to the vault main view:
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│ 📚 知识仓库                          [搜索框] [筛选▼] │
+│ 📚 Knowledge Vault                 [Search] [Filter▼] │
 ├──────────┬───────────────────────────────────────────┤
-│ 分类     │ 资产列表                                  │
+│ Category │ Asset list                                 │
 │          │                                           │
-│ 全部 (12)│ ┌─────────────────────────────────────┐  │
-│ ├ 投资(5)│ │ 格兰瑟姆投资模型分析    [投资] [分析]│  │
-│ ├ 技术(3)│ │ 多模型分析的投资策略知识资产...      │  │
-│ ├ 管理(2)│ │ 🎯 共识: 均值回归...  📎 3个来源    │  │
-│ ├ 市场(2)│ │ [查看] [引用] [导出] [删除]         │  │
-│ └ 未分类 │ └─────────────────────────────────────┘  │
+│ All (12) │ ┌─────────────────────────────────────┐  │
+│ ├ Investing(5)│ │ Grantham Investment Model   [Investing][Analysis]│  │
+│ ├ Tech(3)│ │ Multi-model analysis investment strategy asset... │  │
+│ ├ Mgmt(2)│ │ 🎯 Consensus: Mean reversion... 📎 3 sources │  │
+│ ├ Market(2)│ │ [View] [Reference] [Export] [Delete]│  │
+│ └ Uncat. │ └─────────────────────────────────────┘  │
 │          │ ┌─────────────────────────────────────┐  │
-│ + 新分类 │ │ AI泡沫分析框架          [技术] [市场]│  │
+│ + New    │ │ AI Bubble Analysis Framework  [Tech][Market]│  │
 │          │ │ ...                                 │  │
 │          │ └─────────────────────────────────────┘  │
 ├──────────┴───────────────────────────────────────────┤
-│ 💡 AI建议: 针对"分析新能源研报",推荐引用 [投资] [市场]│
+│ 💡 AI suggestion: For "analyze a new-energy report", recommend referencing [Investing] [Market]│
 └──────────────────────────────────────────────────────┘
 ```
 
-资产卡片可展开查看完整内容（consensus/divergences/blindspots/verdict/sources/元数据）。
+Asset cards can be expanded to view the full content (consensus/divergences/blindspots/verdict/sources/metadata).
 
-### 2.2 自动分类（AI 分类）
+### 2.2 Auto-Categorization (AI Categorization)
 
-添加时 AI 自动分类：
-
-```
-新 Asset 创建
-  ↓
-调模型: "这个知识资产属于什么分类?"
-  输入: asset.name + asset.description + asset.consensus (前200字)
-  输出: 分类名 (如"投资"/"技术"/"管理")
-  ↓
-匹配已有分类 → 归入; 无匹配 → AI新建分类
-```
-
-- 分类**不需要预定义**——AI 根据内容自动创建
-- 用户可**重命名/合并/删除**分类
-- 同一资产可属**多个分类**（标签制，非树形）
-
-### 2.3 AI 使用建议
-
-分析新问题时推荐相关资产：
+When adding an asset, AI categorizes it automatically:
 
 ```
-用户提问: "分析这份新能源研报的投资价值"
+New Asset created
   ↓
-搜索仓库: 匹配名称/描述/共识/标签
+Call model: "Which category does this knowledge asset belong to?"
+  Input:  asset.name + asset.description + asset.consensus (first 200 chars)
+  Output: category name (e.g. "Investing" / "Tech" / "Management")
   ↓
-推荐: "格兰瑟姆投资模型" (匹配"投资")
-     "AI泡沫分析框架" (匹配"新技术评估")
-  ↓
-用户一键勾选 → 注入 Panel 上下文
+Match existing category → assign; no match → AI creates new category
 ```
 
-首版用关键词匹配，积累多了升级语义推荐。
+- Categories **don't need to be predefined** — the AI creates them automatically based on content
+- Users can **rename / merge / delete** categories
+- A single asset can belong to **multiple categories** (tagging system, not a tree)
 
-### 2.4 临时提取分组 🔜 后续
+### 2.3 AI Usage Suggestions
 
-> 当前已实现关键词推荐（§2.3），可覆盖大多数推荐场景。临时分组（AI 跨分类组织相关资产）作为增强功能留后续。
-
-AI 从仓库临时组织一组相关资产（不改永久分类）：
+Recommend relevant assets when analyzing a new question:
 
 ```
-用户: "我要分析新能源行业"
+User asks: "Analyze the investment value of this new-energy research report"
   ↓
-AI 临时分组:
-  ├─ 投资类: 格兰瑟姆投资模型, 估值框架
-  ├─ 市场类: AI泡沫分析, 新能源趋势
-  └─ 技术类: 电池技术评估
+Search the vault: match name / description / consensus / tags
+  ↓
+Recommend: "Grantham Investment Model" (matches "Investing")
+           "AI Bubble Analysis Framework" (matches "new-tech evaluation")
+  ↓
+User checks with one click → injected into Panel context
 ```
 
-临时分组用完即弃，除非用户选"保存为永久分组"。
+The first version uses keyword matching; once we've accumulated more data we'll upgrade to semantic recommendation.
 
-### 2.5 搜索与筛选
+### 2.4 Ad-Hoc Extraction Groups 🔜 Later
 
-| 维度 | 说明 |
+> Keyword-based recommendation (§2.3) is already implemented and covers most recommendation scenarios. Ad-hoc grouping (the AI cross-categorizing related assets) is left as an enhancement for later.
+
+The AI temporarily organizes a set of related assets from the vault (without changing permanent categories):
+
+```
+User: "I want to analyze the new-energy industry"
+  ↓
+AI ad-hoc group:
+  ├─ Investing: Grantham Investment Model, Valuation Framework
+  ├─ Market:    AI Bubble Analysis, New-Energy Trends
+  └─ Tech:      Battery Technology Evaluation
+```
+
+Ad-hoc groups are disposable, unless the user chooses "save as permanent group."
+
+### 2.5 Search and Filter
+
+| Dimension | Description |
 |---|---|
-| 全文搜索 | name/description/consensus/divergences/blindspots/verdict |
-| 按分类 | 点左侧分类树筛选 |
-| 按标签 | 用户自定义标签 |
-| 按来源 | 原始文档名 | 🔜 后续 |
-| 按时间 | 创建时间范围 | 🔜 后续（当前仅支持排序 newest/oldest/name）|
-| 按任务类型 | extract/analysis/quick_qa |
+| Full-text search | name/description/consensus/divergences/blindspots/verdict |
+| By category | Click the category tree on the left to filter |
+| By tags | User-defined tags |
+| By source | Original document name | 🔜 Later |
+| By time | Creation time range | 🔜 Later (currently only supports sort by newest/oldest/name)|
+| By task type | extract/analysis/quick_qa |
 
-### 2.6 多选引用 + Panel 注入
+### 2.6 Multi-Select Reference + Panel Injection
 
-配置栏加「参考资产」多选：
+Add a multi-select "Reference assets" control to the config bar:
 
 ```
-参考资产: [✓ 格兰瑟姆投资模型] [✓ AI泡沫框架] [ 估值模型]
+Reference assets: [✓ Grantham Investment Model] [✓ AI Bubble Framework] [ Valuation Model]
 ```
 
-选中的 Asset 内容格式化后注入 Panel system prompt。
+The content of the selected Assets is formatted and injected into the Panel system prompt.
 
-### 2.7 资产编辑
+### 2.7 Asset Editing
 
-可编辑：name / description / categories / tags / consensus / divergences / blindspots / verdict。不做：编辑 structuredData（JSON 不适合手动编辑）。
+Editable: name / description / categories / tags / consensus / divergences / blindspots / verdict. Not supported: editing structuredData (JSON is not suitable for manual editing).
 
-### 2.8 引用管理
+### 2.8 Reference Management
 
-仓库可看到每个 Asset 被哪些会话引用。
+The vault can show which sessions reference each Asset.
 
 ---
 
-## 3. 数据模型变更
+## 3. Data Model Changes
 
 ```ts
-// KnowledgeAsset 扩展
+// KnowledgeAsset extension
 interface KnowledgeAsset {
-  // ... 现有字段 ...
-  categories: string[];      // 分类 id 列表 (多分类)
-  tags?: string[];           // 用户自定义标签
-  lastUsedAt?: number;       // 最后被引用的时间
-  useCount?: number;         // 被引用次数
+  // ... existing fields ...
+  categories: string[];      // category id list (multi-category)
+  tags?: string[];           // user-defined tags
+  lastUsedAt?: number;       // last time referenced
+  useCount?: number;         // number of times referenced
 }
 
-// 新增
+// New
 interface AssetCategory {
   id: string;
   name: string;
   color?: string;
-  isAuto: boolean;           // AI 创建 vs 用户创建
+  isAuto: boolean;           // AI-created vs user-created
 }
 
-// ConfigFile 扩展
+// ConfigFile extension
 interface ConfigFile {
   knowledgeAssets: KnowledgeAsset[];
-  assetCategories: AssetCategory[];  // 新增
+  assetCategories: AssetCategory[];  // new
 }
 
-// MoASessionConfig 扩展
+// MoASessionConfig extension
 interface MoASessionConfig {
-  referenceAssetIds: string[];  // 多选引用 (替代单数)
+  referenceAssetIds: string[];  // multi-select reference (replaces singular)
 }
 ```
 
 ---
 
-## 4. UI 组件结构
+## 4. UI Component Structure
 
 ```
 src/components/
-├── KnowledgeVault/              ← 新目录
-│   ├── VaultView.tsx            ← 仓库主界面
-│   ├── AssetCard.tsx            ← 资产卡片 (展开/收起)
-│   ├── AssetDetail.tsx          ← 资产详情
-│   ├── CategoryTree.tsx         ← 分类侧栏
-│   ├── AssetSearch.tsx          ← 搜索/筛选
-│   ├── AISuggestion.tsx         ← AI 使用建议
-│   └── AssetEditor.tsx          ← 资产编辑
-├── Sidebar.tsx                  ← 加「📚 知识仓库」入口
-└── SettingsModal.tsx            ← 移除 📦 Assets tab
+├── KnowledgeVault/              ← new directory
+│   ├── VaultView.tsx            ← vault main view
+│   ├── AssetCard.tsx            ← asset card (expand/collapse)
+│   ├── AssetDetail.tsx          ← asset detail
+│   ├── CategoryTree.tsx         ← category sidebar
+│   ├── AssetSearch.tsx          ← search / filter
+│   ├── AISuggestion.tsx         ← AI usage suggestions
+│   └── AssetEditor.tsx          ← asset editor
+├── Sidebar.tsx                  ← add "📚 Knowledge Vault" entry
+└── SettingsModal.tsx            ← remove 📦 Assets tab
 ```
 
 ---
 
-## 5. 实现路线（5 个阶段）
+## 5. Implementation Roadmap (5 Phases)
 
-### 第一阶段：独立仓库 + 浏览（1-2 天）
-- 侧边栏加入口
-- VaultView 主界面
-- AssetCard 展开/收起
-- Settings 移除 Assets tab
-- 简单搜索
+### Phase 1: Standalone Vault + Browsing (1-2 days)
+- Sidebar entry point
+- VaultView main view
+- AssetCard expand/collapse
+- Remove Assets tab from Settings
+- Simple search
 
-### 第二阶段：多选引用 + Panel 注入（1-2 天）
-- referenceAssetIds 多选
-- 配置栏引用选择器
-- send 注入 Asset 上下文
+### Phase 2: Multi-Select Reference + Panel Injection (1-2 days)
+- referenceAssetIds multi-select
+- Reference picker in the config bar
+- Inject Asset context on send
 
-### 第三阶段：AI 自动分类（2-3 天）
-- AssetCategory 持久化
-- 分类服务 classifyAsset
-- 分类侧栏 + 筛选
+### Phase 3: AI Auto-Categorization (2-3 days)
+- Persist AssetCategory
+- Category service classifyAsset
+- Category sidebar + filtering
 
-### 第四阶段：AI 建议 + 临时分组（3-5 天）
-- 关键词匹配推荐
-- AISuggestion 条
-- 临时分组
+### Phase 4: AI Suggestions + Ad-Hoc Groups (3-5 days)
+- Keyword matching recommendation
+- AISuggestion bar
+- Ad-hoc groups
 
-### 第五阶段：编辑 + 引用管理（2-3 天）
+### Phase 5: Editing + Reference Management (2-3 days)
 - AssetEditor
-- 引用追踪
-- 导出增强
+- Reference tracking
+- Export enhancements
 
 ---
 
-## 6. 设计决策
+## 6. Design Decisions
 
-| 决策 | 选择 | 理由 |
+| Decision | Choice | Rationale |
 |---|---|---|
-| 独立入口 | ✅ 侧边栏一等公民 | Asset 是核心价值 |
-| 分类制 | 标签制（多分类） | 灵活 |
-| 分类创建 | AI 自动 + 人工调整 | 不要求用户预定义 |
-| AI 建议 | 先关键词后语义 | 分阶段 |
-| 临时分组 | 一次性 | 不污染永久分类 |
-| 引用 | 多选 | 通常需参考多个 |
-| Settings Assets tab | 移除 | 搬到仓库 |
+| Standalone entry point | ✅ First-class citizen in the sidebar | Assets are the core value |
+| Category system | Tagging system (multi-category) | Flexible |
+| Category creation | AI auto + manual adjustment | Doesn't require users to predefine |
+| AI suggestions | Keyword first, then semantic | Phased |
+| Ad-hoc groups | Ephemeral | Doesn't pollute permanent categories |
+| Reference | Multi-select | Usually need to reference several |
+| Settings Assets tab | Remove | Moved to the vault |
 
 ---
 
-## 7. 一句话定位
+## 7. One-Line Positioning
 
-> **Knowledge Vault 是 Verdex 的知识资产管理核心——让每次分析的产出从"用完即弃"变成"可分类、可搜索、可引用、可导出的持久知识资产"。Verdex 从"分析工具"升级为"知识工厂"。**
+> **Knowledge Vault is the core of Verdex's knowledge asset management — turning the output of each analysis from "disposable" into "categorizable, searchable, referenceable, and exportable persistent knowledge assets." Verdex is upgraded from an "analysis tool" into a "knowledge factory."**
 
 ---
 
-*设计文档版本 0.1 · 2026-07-29 · 5 阶段分步实现*
+*Design document version 0.1 · 2026-07-29 · 5-phase incremental implementation*

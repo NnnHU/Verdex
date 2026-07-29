@@ -1,93 +1,93 @@
-# ⚠️ 踩过的坑（绝对不要再踩）
+# ⚠️ Pitfalls (Never Step on These Again)
 
-> 9 个真实踩过的坑 + 2 个架构教训。新会话务必先读。
-> 最后更新：2026-07-29
-
----
-
-## 坑 1：React Hooks 规则——early return 必须在所有 hooks 之后
-
-**症状**：黑屏崩溃。
-**根因**：`App.tsx` 的 `if (!moa.loaded) return` 放在 `useEffect` 之前 → hooks 数量变化 → React 崩溃。
-**铁律**：所有 hooks 必须在任何 `if (...) return` 之前无条件执行。
+> 9 real pitfalls encountered + 2 architecture lessons. New sessions must read this first.
+> Last updated: 2026-07-29
 
 ---
 
-## 坑 2：bash 里 `%APPDATA%` 不展开
+## Pitfall 1: React Hooks Rules — early return must come after all hooks
 
-**症状**：`cmd /c "...%APPDATA%..."` 查文件永远 NOT_FOUND。
-**根因**：bash 不认 Windows cmd 的 `%VAR%` 语法。
-**正确**：用正斜杠全路径或 `echo $APPDATA`。
-
----
-
-## 坑 3：Tauri 2 fs 权限用 `fs:allow-appdata-*`
-
-**症状**：fs 写盘静默失败。
-**根因**：通用权限默认 scope 为空。
-**配置**：`fs:allow-appdata-read/write/meta`。
+**Symptom**: Blank-screen crash.
+**Root cause**: In `App.tsx`, the `if (!moa.loaded) return` was placed before `useEffect`, causing hooks count changes and crashing React.
+**Rule**: All hooks must run unconditionally before any `if (...) return`.
 
 ---
 
-## 坑 4：端口 1420 占用
+## Pitfall 2: `%APPDATA%` does not expand in bash
 
-**症状**：`Port 1420 is already in use`。
-**处理**：`netstat -ano | grep ":1420" | grep LISTENING` → `cmd //c "taskkill /F /PID <pid>"`。
-**注意**：`taskkill /F` 在 bash 里用 `cmd //c`。
-
----
-
-## 坑 5：Vite env 改了必须重启 dev server
-
-**症状**：改了 `.env` 没生效。
-**根因**：`import.meta.env` 是构建时注入，HMR 不重读 `.env`。
-**正确**：停 server → 重启 → 刷新。
+**Symptom**: `cmd /c "...%APPDATA%..."` never finds the file (always NOT_FOUND).
+**Root cause**: bash doesn't understand Windows cmd's `%VAR%` syntax.
+**Correct**: Use the full path with forward slashes, or `echo $APPDATA`.
 
 ---
 
-## 坑 6：outputMode 混了两个维度（已修复）
+## Pitfall 3: Tauri 2 fs permissions use `fs:allow-appdata-*`
 
-**症状**：用户分不清 Verdict/Extract/Map-Reduce 关系。
-**修复**：拆成 `taskType`（session 级）+ `outputKind`（引擎内部）。
-
----
-
-## 坑 7：Map-Reduce 对大模型是负优化
-
-**症状**：7 份文档走 Map-Reduce 比 Extract 慢 4-5 倍。
-**根因**：大模型单次 36-47s，Reduce 合并 119-187s。
-**修复**：阈值改"单次优先"（>15 万字符才触发）。
-**详见**：`docs/ORCHESTRATION_ROADMAP.md` 性能分析 + `scripts/perf-test.mjs`。
+**Symptom**: fs silent write failure.
+**Root cause**: The generic permission's default scope is empty.
+**Config**: `fs:allow-appdata-read/write/meta`.
 
 ---
 
-## 坑 8：cleanAttachment 闭包时序 bug
+## Pitfall 4: Port 1420 in use
 
-**症状**：「已清洗」标记不出现。
-**根因**：闭包 sessions 读不到刚 addAttachments 的新附件。
-**修复**：cleanAttachment 接受 sourceText 参数。
-
----
-
-## 坑 9：预置假 Provider 污染界面
-
-**症状**：每次显示 Llama/Qwen/DeepSeek/Claude 空假模型。
-**修复**：config.template.json providers=[]，只靠 .env 种子。
+**Symptom**: `Port 1420 is already in use`.
+**Handling**: `netstat -ano | grep ":1420" | grep LISTENING` → `cmd //c "taskkill /F /PID <pid>"`.
+**Note**: In bash, `taskkill /F` must be invoked via `cmd //c`.
 
 ---
 
-## 架构教训 1：template JSON 缺新字段 → 黑屏
+## Pitfall 5: After changing Vite env you must restart the dev server
 
-**症状**：localStorage.clear() 后黑屏 `Cannot read properties of undefined (reading 'length')`。
-**根因**：config.template.json 没有 `knowledgeAssets`/`assetCategories` 字段，template spread 后为 undefined。
-**修复**：loadConfig 的 template 分支加 `?? []` 兜底。
-**教训**：每次给 ConfigFile 加新字段，**必须同步更新 template 兜底**。
+**Symptom**: Changes to `.env` don't take effect.
+**Root cause**: `import.meta.env` is injected at build time; HMR does not re-read `.env`.
+**Correct**: Stop server → restart → refresh.
 
 ---
 
-## 架构教训 2：React StrictMode 双调用 → 重复 Asset
+## Pitfall 6: outputMode conflated two dimensions (fixed)
 
-**症状**：保存一次出现两个相同 Asset。
-**根因**：dev 模式下 setSessions 函数式更新被调用两次。
-**修复**：packedTurnsRef（Set<turnId>）去重。
-**教训**：任何在 setSessions/setXxx 函数式更新里的副作用（如派生 state 写入），都要加去重守卫。
+**Symptom**: Users couldn't tell apart the relationship between Verdict/Extract/Map-Reduce.
+**Fix**: Split into `taskType` (session level) + `outputKind` (engine-internal).
+
+---
+
+## Pitfall 7: Map-Reduce is a negative optimization for large models
+
+**Symptom**: Running 7 documents through Map-Reduce is 4-5x slower than Extract.
+**Root cause**: A single large-model call takes 36-47s, while the Reduce merge takes 119-187s.
+**Fix**: Change the threshold to "single-pass first" (only triggered above 150k characters).
+**See also**: `docs/ORCHESTRATION_ROADMAP.md` performance analysis + `scripts/perf-test.mjs`.
+
+---
+
+## Pitfall 8: cleanAttachment closure timing bug
+
+**Symptom**: The "cleaned" marker never appears.
+**Root cause**: The closure's sessions couldn't see the newly-added attachment from the recent addAttachments call.
+**Fix**: Have cleanAttachment accept a sourceText parameter.
+
+---
+
+## Pitfall 9: Pre-seeded fake providers pollute the UI
+
+**Symptom**: Empty fake models for Llama/Qwen/DeepSeek/Claude show up every time.
+**Fix**: Set `providers=[]` in config.template.json; rely solely on the .env seed.
+
+---
+
+## Architecture Lesson 1: Template JSON missing new fields → blank screen
+
+**Symptom**: After `localStorage.clear()`, a blank screen with `Cannot read properties of undefined (reading 'length')`.
+**Root cause**: config.template.json lacked the `knowledgeAssets`/`assetCategories` fields, leaving them undefined after template spread.
+**Fix**: Add a `?? []` fallback to the template branch of loadConfig.
+**Lesson**: Every time you add a new field to ConfigFile, **you must sync the template fallback accordingly**.
+
+---
+
+## Architecture Lesson 2: React StrictMode double-call → duplicate Asset
+
+**Symptom**: Saving once produces two identical Assets.
+**Root cause**: In dev mode, the setSessions functional update is called twice.
+**Fix**: Use `packedTurnsRef` (a `Set<turnId>`) as a dedup guard.
+**Lesson**: Any side effect inside a setSessions/setXxx functional update (such as writing derived state) needs a dedup guard.
