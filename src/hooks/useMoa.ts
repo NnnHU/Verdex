@@ -235,6 +235,8 @@ export interface UseMoa {
   removeKnowledgeAsset: (id: string) => void;
   classifyKnowledgeAsset: (assetId: string) => Promise<void>;
   assetCategories: AssetCategory[];
+  classifyModelId: string | null;
+  setClassifyModelId: (id: string | null) => void;
   addAssetCategory: (name: string) => string;
   removeAssetCategory: (id: string) => void;
   updateAssetCategories: (assetId: string, categoryIds: string[]) => void;
@@ -314,6 +316,7 @@ export function useMoa(): UseMoa {
   );
   const [knowledgeAssets, setKnowledgeAssets] = useState<KnowledgeAsset[]>([]);
   const [assetCategories, setAssetCategories] = useState<AssetCategory[]>([]);
+  const [classifyModelId, setClassifyModelId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ChatSession[]>(
     () => getTemplateConfig().sessions
   );
@@ -637,7 +640,9 @@ export function useMoa(): UseMoa {
       return prev;
     });
     if (!assetToClassify) return;
-    const provider = providers[0];
+    const provider = classifyModelId
+      ? providers.find((p) => p.id === classifyModelId)
+      : providers[0];
     if (!provider) return;
     const memCfg = getMemoryConfig();
     const names = await classifyAsset(assetToClassify!, catsSnapshot, provider, memCfg.requestTimeoutMs);
@@ -1599,6 +1604,8 @@ export function useMoa(): UseMoa {
     removeKnowledgeAsset,
     classifyKnowledgeAsset,
     assetCategories,
+    classifyModelId,
+    setClassifyModelId,
     addAssetCategory,
     removeAssetCategory,
     updateAssetCategories,

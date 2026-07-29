@@ -224,7 +224,8 @@
     "newCategory": "New Category",
     "categoryName": "Category name",
     "allCategories": "All",
-    "uncategorized": "Uncategorized"
+    "uncategorized": "Uncategorized",
+    "classifyModel": "Classify with:"
   },
   "assetsModal": {
     "description": "Knowledge Assets auto-saved from analysis results. Export to Claude Skill / Markdown / JSON from the chat.",

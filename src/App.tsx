@@ -162,6 +162,9 @@ export default function App() {
           <VaultView
             assets={moa.knowledgeAssets}
             categories={moa.assetCategories}
+            providers={moa.providers}
+            classifyModelId={moa.classifyModelId}
+            onClassifyModelChange={moa.setClassifyModelId}
             onRemoveAsset={moa.removeKnowledgeAsset}
             onClassifyAsset={moa.classifyKnowledgeAsset}
             onRemoveCategory={moa.removeAssetCategory}

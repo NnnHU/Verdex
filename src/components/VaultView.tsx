@@ -7,13 +7,16 @@
  */
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import type { AssetCategory, KnowledgeAsset } from "../types/moa";
+import type { AIProvider, AssetCategory, KnowledgeAsset } from "../types/moa";
 import { exportAsset } from "../services/exporters";
 import { JsonCardRenderer } from "./JsonCardRenderer";
 
 interface VaultViewProps {
   assets: KnowledgeAsset[];
   categories: AssetCategory[];
+  providers: AIProvider[];
+  classifyModelId: string | null;
+  onClassifyModelChange: (id: string | null) => void;
   onClassifyAsset: (assetId: string) => Promise<void>;
   onRemoveCategory: (categoryId: string) => void;
   onAddCategory: (name: string) => string;
@@ -246,7 +249,7 @@ function AssetCard({
   );
 }
 
-export function VaultView({ assets, categories, onRemoveAsset, onClassifyAsset, onRemoveCategory, onAddCategory, onUpdateAssetCategories, onClose }: VaultViewProps) {
+export function VaultView({ assets, categories, providers, classifyModelId, onClassifyModelChange, onRemoveAsset, onClassifyAsset, onRemoveCategory, onAddCategory, onUpdateAssetCategories, onClose }: VaultViewProps) {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
@@ -381,13 +384,32 @@ export function VaultView({ assets, categories, onRemoveAsset, onClassifyAsset, 
             <h1 className="text-sm font-semibold text-ink-strong">📚 {t("vault.title")}</h1>
             <span className="text-[11px] text-ink-faint">({filtered.length})</span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md px-2 py-1 text-ink-muted hover:bg-surface-2 hover:text-ink"
-          >
-            ✕ {t("common.close")}
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Classify model selector */}
+            {providers.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-ink-faint">{t("vault.classifyModel")}</span>
+                <select
+                  value={classifyModelId ?? ""}
+                  onChange={(e) => onClassifyModelChange(e.target.value || null)}
+                  className="rounded-md border border-hairline-strong bg-surface px-2 py-1 text-[11px] text-ink"
+                >
+                  {providers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md px-2 py-1 text-ink-muted hover:bg-surface-2 hover:text-ink"
+            >
+              ✕ {t("common.close")}
+            </button>
+          </div>
         </div>
 
         {/* Search bar */}
