@@ -21,7 +21,10 @@ interface VaultViewProps {
   onRemoveCategory: (categoryId: string) => void;
   onAddCategory: (name: string) => string;
   onUpdateAssetCategories: (assetId: string, categoryIds: string[]) => void;
+  onUpdateAsset: (id: string, patch: Partial<KnowledgeAsset>) => void;
   onRemoveAsset: (id: string) => void;
+  /** Sessions for reference tracking. */
+  sessions: { sessionId: string; title: string; config: { referenceAssetIds: string[] } }[];
   onClose: () => void;
 }
 
@@ -54,18 +57,25 @@ function AssetCard({
   onRemove,
   onUpdateCategories,
   onAddCategory,
+  onUpdateAsset,
+  referencedBy,
 }: {
   asset: KnowledgeAsset;
   categories: AssetCategory[];
   onRemove: (id: string) => void;
   onUpdateCategories?: (assetId: string, categoryIds: string[]) => void;
   onAddCategory?: (name: string) => string;
+  onUpdateAsset?: (id: string, patch: Partial<KnowledgeAsset>) => void;
+  referencedBy: string[];
 }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [exportMenu, setExportMenu] = useState(false);
   const [catMenu, setCatMenu] = useState(false);
   const [newCatName, setNewCatName] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(asset.name);
+  const [editDesc, setEditDesc] = useState(asset.description);
 
   const handleExport = (format: "claude-skill" | "markdown" | "json" | "verdex-native") => {
     const result = exportAsset(asset, format);
@@ -164,6 +174,38 @@ function AssetCard({
             </div>
           </div>
 
+          {/* Reference tracking */}
+          {referencedBy.length > 0 && (
+            <div className="border-t border-hairline pt-2 text-[10px] text-ink-faint">
+              <span className="font-medium">📎 {t("vault.referencedBy")}:</span>{" "}
+              {referencedBy.join(", ")}
+            </div>
+          )}
+
+          {/* Edit mode */}
+          {editing && (
+            <div className="space-y-2 border-t border-hairline pt-2">
+              <label className="block">
+                <span className="text-[10px] text-ink-muted">{t("vault.assetName")}</span>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full rounded border border-hairline-strong bg-surface px-2 py-1 text-xs text-ink"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] text-ink-muted">{t("vault.assetDescription")}</span>
+                <textarea
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  rows={2}
+                  className="w-full rounded border border-hairline-strong bg-surface px-2 py-1 text-xs text-ink"
+                />
+              </label>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex items-center gap-3 pt-1">
             <div className="relative">
@@ -190,6 +232,36 @@ function AssetCard({
             >
               🗑️ {t("common.delete")}
             </button>
+            {onUpdateAsset && !editing && (
+              <button
+                type="button"
+                onClick={() => { setEditing(true); setEditName(asset.name); setEditDesc(asset.description); }}
+                className="text-[11px] text-ink-muted hover:text-accent"
+              >
+                ✏️ {t("vault.edit")}
+              </button>
+            )}
+            {editing && onUpdateAsset && (
+              <button
+                type="button"
+                onClick={() => {
+                  onUpdateAsset(asset.id, { name: editName, description: editDesc });
+                  setEditing(false);
+                }}
+                className="text-[11px] text-success"
+              >
+                ✓ {t("vault.save")}
+              </button>
+            )}
+            {editing && (
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="text-[11px] text-ink-muted"
+              >
+                ✕ {t("common.close")}
+              </button>
+            )}
             {onUpdateCategories && (
               <div className="relative">
                 <button
@@ -249,7 +321,7 @@ function AssetCard({
   );
 }
 
-export function VaultView({ assets, categories, providers, classifyModelId, onClassifyModelChange, onRemoveAsset, onClassifyAsset, onRemoveCategory, onAddCategory, onUpdateAssetCategories, onClose }: VaultViewProps) {
+export function VaultView({ assets, categories, providers, classifyModelId, onClassifyModelChange, onRemoveAsset, onClassifyAsset, onRemoveCategory, onAddCategory, onUpdateAssetCategories, onUpdateAsset, sessions, onClose }: VaultViewProps) {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
@@ -442,6 +514,10 @@ export function VaultView({ assets, categories, providers, classifyModelId, onCl
                   onRemove={onRemoveAsset}
                   onUpdateCategories={onUpdateAssetCategories}
                   onAddCategory={onAddCategory}
+                  onUpdateAsset={onUpdateAsset}
+                  referencedBy={sessions
+                    .filter((s) => s.config.referenceAssetIds.includes(asset.id))
+                    .map((s) => s.title)}
                 />
               ))}
             </div>

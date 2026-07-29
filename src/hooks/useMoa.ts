@@ -232,6 +232,7 @@ export interface UseMoa {
   // Knowledge Asset state + CRUD (Stage 4)
   knowledgeAssets: KnowledgeAsset[];
   addKnowledgeAsset: (asset: KnowledgeAsset) => void;
+  updateKnowledgeAsset: (id: string, patch: Partial<KnowledgeAsset>) => void;
   removeKnowledgeAsset: (id: string) => void;
   classifyKnowledgeAsset: (assetId: string) => Promise<void>;
   assetCategories: AssetCategory[];
@@ -659,7 +660,26 @@ export function useMoa(): UseMoa {
 
   const removeKnowledgeAsset = useCallback((id: string) => {
     setKnowledgeAssets((prev) => prev.filter((a) => a.id !== id));
+    // Also remove from all sessions' referenceAssetIds.
+    setSessions((prev) =>
+      prev.map((s) => ({
+        ...s,
+        config: {
+          ...s.config,
+          referenceAssetIds: s.config.referenceAssetIds.filter((rid) => rid !== id),
+        },
+      }))
+    );
   }, []);
+
+  const updateKnowledgeAsset = useCallback(
+    (id: string, patch: Partial<KnowledgeAsset>) => {
+      setKnowledgeAssets((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, ...patch } : a))
+      );
+    },
+    []
+  );
 
   /* --- Asset Category CRUD + Classifier (Stage 3 Vault) --- */
 
@@ -1601,6 +1621,7 @@ export function useMoa(): UseMoa {
     removeExtractSchema,
     knowledgeAssets,
     addKnowledgeAsset,
+    updateKnowledgeAsset,
     removeKnowledgeAsset,
     classifyKnowledgeAsset,
     assetCategories,

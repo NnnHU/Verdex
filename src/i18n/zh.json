@@ -226,7 +226,12 @@
     "categoryName": "分类名称",
     "allCategories": "全部",
     "uncategorized": "未分类",
-    "classifyModel": "分类模型:"
+    "classifyModel": "分类模型:",
+    "edit": "编辑",
+    "save": "保存",
+    "assetName": "名称",
+    "assetDescription": "描述",
+    "referencedBy": "被引用于"
   },
   "assetsModal": {
     "description": "知识资产从分析结果自动保存。可在对话中导出为 Claude Skill / Markdown / JSON。",

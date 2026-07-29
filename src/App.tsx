@@ -170,6 +170,8 @@ export default function App() {
             onRemoveCategory={moa.removeAssetCategory}
             onAddCategory={moa.addAssetCategory}
             onUpdateAssetCategories={moa.updateAssetCategories}
+            onUpdateAsset={moa.updateKnowledgeAsset}
+            sessions={moa.sessions.map((s) => ({ sessionId: s.sessionId, title: s.title, config: { referenceAssetIds: s.config.referenceAssetIds } }))}
             onClose={() => setVaultOpen(false)}
           />
         </div>
