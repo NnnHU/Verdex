@@ -110,9 +110,13 @@ export function MoAConfigBar({
                 💬 {t("moaConfigBar.taskTypeQuickQa")}
               </button>
           </div>
+          {/* Selected task description */}
+          <p className="text-[10px] leading-relaxed text-ink-faint">
+            {config.taskType === "document_extract" && t("moaConfigBar.taskHintExtract")}
+            {config.taskType === "document_analysis" && t("moaConfigBar.taskHintAnalysis")}
+            {config.taskType === "quick_qa" && t("moaConfigBar.taskHintQa")}
+          </p>
         </div>
-
-        {/* ❷ Documents (doc tasks only) */}
         {isDocTask && (
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
