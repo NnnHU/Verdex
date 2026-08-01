@@ -76,18 +76,39 @@ function buildProvider(env: Record<string, string>, suffix: string, id: string):
  * ------------------------------------------------------------------ */
 
 interface SampleQuery { id: string; text: string; }
-interface SampleCase { id: string; doc: string; queries: SampleQuery[]; }
+interface SampleCase {
+  id: string;
+  doc: string;
+  /** Optional additional docs to combine into one corpus (multi-doc case). */
+  multiDocs?: string[];
+  queries: SampleQuery[];
+}
 
 function loadSamples(): { cases: SampleCase[]; docs: Map<string, string> } {
   const manifest = JSON.parse(readFileSync(join(SAMPLES_DIR, "samples.json"), "utf8")) as
     { cases: SampleCase[] };
   const docs = new Map<string, string>();
+  // Collect every filename referenced by any case (primary + multiDocs).
   for (const c of manifest.cases) {
-    if (!docs.has(c.doc)) {
-      docs.set(c.doc, readFileSync(join(SAMPLES_DIR, c.doc), "utf8"));
+    const names = [c.doc, ...(c.multiDocs ?? [])];
+    for (const n of names) {
+      if (!docs.has(n)) {
+        docs.set(n, readFileSync(join(SAMPLES_DIR, n), "utf8"));
+      }
     }
   }
   return { cases: manifest.cases, docs };
+}
+
+/** Build the combined corpus text for a case (single doc, or multi-doc joined). */
+function caseCorpus(c: SampleCase, docs: Map<string, string>): { text: string; sourceNames: string[] } {
+  const names = [c.doc, ...(c.multiDocs ?? [])];
+  const parts = names.map((n) => {
+    const body = docs.get(n)!;
+    // Prefix each doc with a header so the model can tell them apart.
+    return `=== ${n} ===\n${body}`;
+  });
+  return { text: parts.join("\n\n"), sourceNames: names };
 }
 
 /* ------------------------------------------------------------------ *
@@ -352,14 +373,15 @@ async function runMode3(
  * ------------------------------------------------------------------ */
 
 function writeReport(
-  runId: string, caseId: string, docChars: number, queryId: string, query: string,
-  results: ModeResult[]
+  runId: string, caseId: string, docChars: number, sourceNames: string[],
+  queryId: string, query: string, results: ModeResult[]
 ): void {
   // trace.json — full fidelity dump
   writeFileSync(
     join(RESULTS_DIR, `${runId}-${caseId}-${queryId}-trace.json`),
     JSON.stringify({
-      runId, caseId, queryId, query, docChars, generatedAt: new Date().toISOString(),
+      runId, caseId, queryId, query, docChars, sourceNames,
+      generatedAt: new Date().toISOString(),
       results: results.map((r) => ({
         mode: r.mode, ok: r.ok, latencyMs: r.latencyMs, apiCalls: r.apiCalls,
         validJson: r.validJson, error: r.error,
@@ -374,7 +396,8 @@ function writeReport(
   const lines: string[] = [];
   lines.push(`# Benchmark: ${caseId} / ${queryId}`, "");
   lines.push(`- **Generated**: ${new Date().toISOString()}`);
-  lines.push(`- **Document chars**: ${docChars.toLocaleString()}`);
+  lines.push(`- **Sources**: ${sourceNames.join(", ")}`);
+  lines.push(`- **Corpus chars**: ${docChars.toLocaleString()}${sourceNames.length > 1 ? ` (multi-doc)` : ""}`);
   lines.push(`- **Query**: ${query}`, "");
   lines.push("## Comparison", "");
   lines.push("| Mode | OK | Latency (s) | API calls | Valid JSON | Fields (0-4) |");
@@ -432,30 +455,32 @@ async function main(): Promise<void> {
   const runId = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 
   for (const c of cases) {
-    const docText = docs.get(c.doc)!;
+    const { text: corpusText, sourceNames } = caseCorpus(c, docs);
+    const multiLabel = sourceNames.length > 1 ? ` [multi-doc ×${sourceNames.length}]` : "";
     for (const q of c.queries) {
-      console.log(`\n=== Case "${c.id}" / query "${q.id}" ===`);
+      console.log(`\n=== Case "${c.id}" / query "${q.id}"${multiLabel} ===`);
+      console.log(`  Corpus: ${corpusText.length.toLocaleString()} chars from ${sourceNames.join(", ")}`);
       console.log(`  Q: ${q.text.slice(0, 80)}...`);
 
       const results: ModeResult[] = [];
 
       console.log("  ▷ M1 single-model single-shot...");
-      results.push(await runMode1(p1, docText, q.text, timeoutMs));
+      results.push(await runMode1(p1, corpusText, q.text, timeoutMs));
       console.log(`    ✓ ${results[0].ok ? "ok" : "FAILED"} in ${(results[0].latencyMs / 1000).toFixed(1)}s`);
 
       console.log("  ▷ M2 single-model multi-step...");
-      results.push(await runMode2(p1, docText, q.text, timeoutMs));
+      results.push(await runMode2(p1, corpusText, q.text, timeoutMs));
       console.log(`    ✓ ${results[1].ok ? "ok" : "FAILED"} in ${(results[1].latencyMs / 1000).toFixed(1)}s`);
 
       if (p2) {
         console.log("  ▷ M3 multi-model Panel+Judge...");
-        results.push(await runMode3(providers, [p1.id, p2.id], p1.id, docText, q.text, timeoutMs));
+        results.push(await runMode3(providers, [p1.id, p2.id], p1.id, corpusText, q.text, timeoutMs));
         console.log(`    ✓ ${results[2].ok ? "ok" : "FAILED"} in ${(results[2].latencyMs / 1000).toFixed(1)}s`);
       } else {
         console.log("  ⊘ M3 multi-model SKIPPED (only 1 provider configured)");
       }
 
-      writeReport(runId, c.id, docText.length, q.id, q.text, results);
+      writeReport(runId, c.id, corpusText.length, sourceNames, q.id, q.text, results);
       console.log(`  ▶ Report written to bench-results/${runId}-${c.id}-${q.id}-report.md`);
     }
   }

@@ -1,13 +1,135 @@
 {
-  "_comment": "Benchmark sample cases for Verdex P1. Each case points to a .txt document and lists questions to run across the three execution modes (M1 single-shot / M2 single-model multi-step / M3 multi-model Panel+Judge).",
+  "_comment": "Benchmark sample cases for Verdex P1. Cases point to .txt documents in this folder and list queries run across three execution modes (M1 single-shot / M2 single-model multi-step / M3 multi-model Panel+Judge). The g-series and F-big/G-super docs are ASR transcripts (contain typos) — they double as a test of ASR cleaning. Drop more .txt files + entries here to extend the corpus.",
   "cases": [
     {
-      "id": "grantham",
+      "id": "grantham-summary",
       "doc": "grantham.txt",
       "queries": [
         {
           "id": "risk-lesson",
           "text": "What is the core lesson about investment risk that this story teaches? Analyze from both the psychological and structural angles."
+        }
+      ]
+    },
+    {
+      "id": "g1-mean-reversion",
+      "doc": "g1.txt",
+      "queries": [
+        {
+          "id": "key-conflict",
+          "text": "What is the core conflict between Grantham and his clients in this story? Summarize each side's position and who turned out to be right."
+        }
+      ]
+    },
+    {
+      "id": "g2-keystone",
+      "doc": "g2.txt",
+      "queries": [
+        {
+          "id": "why-protest",
+          "text": "Why did the elderly billionaire go to the White House to protest? What does this reveal about his values beyond investing?"
+        }
+      ]
+    },
+    {
+      "id": "g3-ai-bet",
+      "doc": "g3.txt",
+      "queries": [
+        {
+          "id": "ai-risk",
+          "text": "What is the 'AI bet' described here, and what are the risks if the bet fails? List the specific economic exposures mentioned."
+        }
+      ]
+    },
+    {
+      "id": "g4-reinvest",
+      "doc": "g4.txt",
+      "queries": [
+        {
+          "id": "timing-call",
+          "text": "What did GMO's 'Reinvest in Fear' letter say, and how precise was Grantham's market-timing call? Give the exact dates and numbers."
+        }
+      ]
+    },
+    {
+      "id": "g5-showdown",
+      "doc": "g5.txt",
+      "queries": [
+        {
+          "id": "debate-outcome",
+          "text": "Describe the Forbes debate between Grantham and Blodget. Who predicted the crash, and how accurate was the prediction?"
+        }
+      ]
+    },
+    {
+      "id": "g6-derivatives",
+      "doc": "g6.txt",
+      "queries": [
+        {
+          "id": "verdict-derivatives",
+          "text": "What was the verdict of the Manhattan debate on whether financial innovation is harmful? Summarize Grantham's argument."
+        }
+      ]
+    },
+    {
+      "id": "g7-chanos",
+      "doc": "g7.txt",
+      "queries": [
+        {
+          "id": "chanos-view",
+          "text": "What is Jim Chanos's view on the current AI-driven market? What evidence does he cite, and what is his famous catchphrase?"
+        }
+      ]
+    },
+    {
+      "id": "fbig1-1999",
+      "doc": "F-big1.txt",
+      "queries": [
+        {
+          "id": "bubble-anatomy",
+          "text": "Analyze the anatomy of the 1999 internet bubble as described here: what drove it, who was blamed, and what were the warning signs ignored?"
+        }
+      ]
+    },
+    {
+      "id": "fbig2-2009",
+      "doc": "F-big2.txt",
+      "queries": [
+        {
+          "id": "crisis-recovery",
+          "text": "How did the 2008-2009 financial crisis unfold and recover according to this account? What were the key turning points and policy responses?"
+        }
+      ]
+    },
+    {
+      "id": "fbig3-2026",
+      "doc": "F-big3.txt",
+      "queries": [
+        {
+          "id": "ai-parallel",
+          "text": "How does this text draw parallels between past bubbles and the 2026 AI boom? What structural similarities does it highlight?"
+        }
+      ]
+    },
+    {
+      "id": "gsuper-synthesis",
+      "doc": "G-super.txt",
+      "queries": [
+        {
+          "id": "grand-narrative",
+          "text": "Synthesize the overarching narrative across this entire series: what is the single most important lesson about markets and human behavior that ties all the episodes together?"
+        }
+      ]
+    },
+    {
+      "_comment": "Multi-document case: g1+g2+g3 combined -> triggers Map-Reduce (PITFALLS #7 scenario). Tests cross-document synthesis.",
+      "id": "multi-g123",
+      "doc": "g1.txt",
+      "multiDocs": ["g2.txt", "g3.txt"],
+      "queries": [
+        {
+          "id": "cross-doc-synthesis",
+          "text": "Across these three episodes, how does Grantham's approach to being 'right but early' evolve? Compare the personal costs and outcomes in each case."
         }
       ]
     }
