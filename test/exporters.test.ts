@@ -45,6 +45,17 @@ describe("exportClaudeSkill", () => {
     expect(filenames).toContain("structured-data.md");
     expect(filenames).toContain("sources.md");
   });
+
+  it("drops the structured-data chapter when structuredData is the four-field verdict", () => {
+    const asset = makeAsset();
+    asset.structuredData = {
+      consensus: "c", divergence: "d", blindspots: "b", verdict: "v",
+    };
+    const result = exportClaudeSkill(asset);
+    const filenames = result.extraFiles!.map((f) => f.filename);
+    expect(filenames).not.toContain("structured-data.md");
+    expect(filenames).toContain("sources.md");
+  });
 });
 
 describe("exportMarkdown", () => {
@@ -56,6 +67,23 @@ describe("exportMarkdown", () => {
     expect(result.content).toContain("## Consensus");
     expect(result.content).toContain("## Divergences");
     expect(result.content).toContain("## Sources");
+  });
+
+  it("omits the Structured Data section when structuredData is the four-field verdict (avoids duplicating the verdict)", () => {
+    // Regression: a four-field-verdict asset used to render Consensus/Verdict
+    // AND a redundant "## Structured Data" that repeated the same four fields.
+    const asset = makeAsset();
+    asset.structuredData = {
+      consensus: "均值回归是核心",
+      divergence: "AI泡沫分歧",
+      blindspots: "职业风险",
+      verdict: "保持逆向投资",
+    };
+    const result = exportMarkdown(asset);
+    expect(result.content).toContain("## Consensus");
+    expect(result.content).toContain("## Verdict");
+    // The duplicated structured-data section must be skipped.
+    expect(result.content).not.toContain("## Structured Data");
   });
 });
 

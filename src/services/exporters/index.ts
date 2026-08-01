@@ -47,8 +47,14 @@ export function exportClaudeSkill(asset: KnowledgeAsset): AssetExportResult {
 
   const extraFiles: { filename: string; content: string }[] = [];
 
-  // If structured data exists, add as a chapter.
-  if (asset.structuredData && Object.keys(asset.structuredData).length > 0) {
+  // If non-verdict structured data exists, add as a chapter. Skip when the
+  // structured data is itself the four-field verdict — those are already
+  // rendered above, so duplicating them as a chapter adds noise.
+  if (
+    asset.structuredData &&
+    Object.keys(asset.structuredData).length > 0 &&
+    !isFourFieldVerdict(asset.structuredData)
+  ) {
     extraFiles.push({
       filename: "structured-data.md",
       content: jsonToMarkdown(asset.structuredData, asset.name),
@@ -84,7 +90,13 @@ export function exportMarkdown(asset: KnowledgeAsset): AssetExportResult {
   if (asset.blindspots) lines.push("## Blind Spots", asset.blindspots, "");
   if (asset.verdict) lines.push("## Verdict", asset.verdict, "");
 
-  if (asset.structuredData) {
+  // Only render Structured Data when it carries content beyond the four
+  // verdict fields already shown above (avoids duplicating the verdict).
+  if (
+    asset.structuredData &&
+    Object.keys(asset.structuredData).length > 0 &&
+    !isFourFieldVerdict(asset.structuredData)
+  ) {
     lines.push("## Structured Data", "");
     lines.push(jsonToMarkdown(asset.structuredData), "");
   }
@@ -158,5 +170,22 @@ function slugify(name: string): string {
       .replace(/[^\w\u4e00-\u9fff\s-]/g, "")
       .replace(/\s+/g, "-")
       .slice(0, 50) || "untitled-asset"
+  );
+}
+
+/**
+ * Detect whether a structured-data object is exactly the four-field verdict
+ * shape ({consensus, divergence(s), blindspots, verdict}). Used to avoid
+ * rendering a redundant "Structured Data" section whose content is identical
+ * to the verdict sections above.
+ */
+function isFourFieldVerdict(data: Record<string, unknown>): boolean {
+  const keys = Object.keys(data);
+  const has = (k: string) => keys.includes(k);
+  return (
+    has("consensus") &&
+    (has("divergence") || has("divergences")) &&
+    has("blindspots") &&
+    has("verdict")
   );
 }

@@ -80,6 +80,52 @@ describe("packExtractAsset", () => {
     expect(asset.consensus).toContain("思维模型");
     expect(asset.consensus).toContain("因果链");
   });
+
+  it("detects a four-field verdict shape in extract data and populates verdict fields instead of joining them", () => {
+    // Regression: when the extract schema is the "four-field verdict (extract)"
+    // template, the model returns {consensus, divergence, blindspots, verdict}.
+    // Previously the packer ran summarizeStructuredData over those 4 keys and
+    // stuffed the same semicolon-joined blob into BOTH consensus and verdict,
+    // losing the per-field content. It must now split them correctly.
+    const asset = packExtractAsset({
+      query: "分析投资模型",
+      data: {
+        consensus: "均值回归是核心",
+        divergence: "AI泡沫程度有分歧",
+        blindspots: "职业风险常被忽略",
+        verdict: "保持逆向投资",
+      },
+      taskType: "document_extract",
+      sources: ["g1.txt"],
+      panelModels: ["V3", "R1"],
+      judgeModel: "V3",
+    });
+    expect(asset.consensus).toBe("均值回归是核心");
+    expect(asset.divergences).toBe("AI泡沫程度有分歧");
+    expect(asset.blindspots).toBe("职业风险常被忽略");
+    expect(asset.verdict).toBe("保持逆向投资");
+    // Must NOT contain the joined blob.
+    expect(asset.consensus).not.toContain("divergence");
+    expect(asset.consensus).not.toContain("blindspots");
+  });
+
+  it("accepts the plural 'divergences' key as the four-field shape", () => {
+    const asset = packExtractAsset({
+      query: "q",
+      data: {
+        consensus: "c",
+        divergences: "d",
+        blindspots: "b",
+        verdict: "v",
+      },
+      taskType: "document_extract",
+      sources: [],
+      panelModels: [],
+      judgeModel: "",
+    });
+    expect(asset.divergences).toBe("d");
+    expect(asset.consensus).toBe("c");
+  });
 });
 
 describe("packFromTurn", () => {

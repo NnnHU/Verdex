@@ -51,6 +51,13 @@ export function packVerdictAsset(params: {
 
 /**
  * Pack an extract response (structured JSON) into a KnowledgeAsset.
+ *
+ * If the structured data happens to be a four-field verdict shape
+ * ({consensus, divergence, blindspots, verdict}) — e.g. the user picked the
+ * "four-field verdict (extract)" schema — populate the asset's verdict fields
+ * from those values instead of collapsing everything into a flat summary
+ * (which previously left Consensus/Verdict holding the same semicolon-joined
+ * blob of all four fields).
  */
 export function packExtractAsset(params: {
   query: string;
@@ -62,8 +69,10 @@ export function packExtractAsset(params: {
   name?: string;
   description?: string;
 }): KnowledgeAsset {
-  // Try to extract consensus-like summary from the structured data's first values.
-  const summary = summarizeStructuredData(params.data);
+  const verdictFields = extractVerdictFields(params.data);
+  const summary = verdictFields
+    ? verdictFields.consensus
+    : summarizeStructuredData(params.data);
   return {
     id: crypto.randomUUID(),
     name: params.name ?? autoName(params.query),
@@ -71,16 +80,46 @@ export function packExtractAsset(params: {
       params.description ?? autoDescription(params.query, summary),
     sourceQuery: params.query,
     createdAt: Date.now(),
-    consensus: summary,
-    divergences: "",
-    blindspots: "",
-    verdict: summary,
+    consensus: verdictFields?.consensus ?? summary,
+    divergences: verdictFields?.divergences ?? "",
+    blindspots: verdictFields?.blindspots ?? "",
+    verdict: verdictFields?.verdict ?? summary,
     structuredData: params.data,
     sources: params.sources,
     originTaskType: params.taskType,
     panelModels: params.panelModels,
     judgeModel: params.judgeModel,
     categories: [],
+  };
+}
+
+/**
+ * Detect whether an extract-mode data object is actually a four-field verdict
+ * ({consensus, divergence, blindspots, verdict}). Returns the four values (with
+ * the asset field name `divergences`) if so, otherwise null.
+ *
+ * Matching is lenient: divergence may be singular (`divergence`) or plural
+ * (`divergences`), and all four keys must be present with string values.
+ */
+function extractVerdictFields(
+  data: Record<string, unknown>
+): { consensus: string; divergences: string; blindspots: string; verdict: string } | null {
+  const keys = Object.keys(data);
+  const has = (k: string) => keys.includes(k);
+  // divergence may appear as either singular or plural depending on schema wording.
+  const hasDivergence = has("divergence") || has("divergences");
+  if (!(has("consensus") && hasDivergence && has("blindspots") && has("verdict"))) {
+    return null;
+  }
+  const str = (v: unknown): string => (typeof v === "string" ? v : "");
+  const divergences =
+    (data["divergences"] as unknown as string) ??
+    (data["divergence"] as unknown as string);
+  return {
+    consensus: str(data["consensus"]),
+    divergences: str(divergences),
+    blindspots: str(data["blindspots"]),
+    verdict: str(data["verdict"]),
   };
 }
 

@@ -269,6 +269,16 @@ async function runPanel(
         request,
         (delta) => cb.onPanelDelta?.(provider.id, delta)
       );
+      // Treat an empty completion as a transient failure: the call succeeded
+      // at the transport level but the model produced no tokens (stream glitch,
+      // premature close, empty generation). Retry once before giving up, so a
+      // single blank response doesn't silently degrade a multi-model turn.
+      if (!text.trim() && attempt < PANEL_MAX_ATTEMPTS) {
+        lastErr = new Error("empty response");
+        cb.onPanelRetry?.(provider.id);
+        await sleep(PANEL_RETRY_BACKOFF_MS);
+        continue;
+      }
       cb.onPanelDone?.(provider.id, text);
       return {
         providerId: provider.id,
