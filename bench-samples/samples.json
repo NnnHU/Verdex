@@ -1,0 +1,15 @@
+{
+  "_comment": "Benchmark sample cases for Verdex P1. Each case points to a .txt document and lists questions to run across the three execution modes (M1 single-shot / M2 single-model multi-step / M3 multi-model Panel+Judge).",
+  "cases": [
+    {
+      "id": "grantham",
+      "doc": "grantham.txt",
+      "queries": [
+        {
+          "id": "risk-lesson",
+          "text": "What is the core lesson about investment risk that this story teaches? Analyze from both the psychological and structural angles."
+        }
+      ]
+    }
+  ]
+}

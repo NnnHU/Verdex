@@ -1,0 +1,52 @@
+Jeremy Grantham and the 1999 Internet Bubble: A Cautionary Tale of Being Right Early
+
+In late 1999, the U.S. stock market reached its highest valuations in history —
+more expensive than the peak before the 1929 crash. Jeremy Grantham, co-founder
+of the asset management firm GMO, had spent years studying 28 historical bubbles
+and reached a stark conclusion: every single one of them eventually burst. His
+firm built its entire methodology on "mean reversion" — the principle that asset
+prices, pushed to extremes by emotion, eventually return to their long-run fair
+value. GMO did not use complex mathematical optimizers; they used a simple
+"cheap-to-expensive" scale to set portfolio weights.
+
+The problem: from 1997 onward, the market entered a mania. Growth stocks and
+internet companies soared, while cheap value stocks were abandoned. Grantham's
+quantitative models and historical research all pointed to the market being
+dangerously overvalued. He refused to chase the bubble, keeping clients
+underweight the soaring tech sector and even shorting the U.S. market with
+roughly $10 million of his own money.
+
+The cost was brutal and immediate. GMO's assets under management collapsed from
+roughly $30 billion in 1997 to about $20 billion by early 2000, as clients
+redeemed in frustration at lagging returns. The asset-allocation division lost
+around 60% of its clients. One hospital endowment's investment committee chair
+shouted at Grantham in a Boston meeting: "Stop talking to us about mean
+reversion!" Grantham's reply was unyielding: "Without mean reversion, I have no
+way to explain to you where we came from or where we are going."
+
+What made the situation cruel was not just the firm's bleeding — it was that
+Grantham was personally squeezed on two fronts. As clients fled, GMO's
+management-fee revenue collapsed. At the same time, his personal short position
+faced relentless margin calls as the market kept climbing. He was nearly wiped
+out financially, even though his core thesis was correct.
+
+The deepest lesson of the episode is an industry rule of thumb, often
+attributed to Keynes: "The market can stay irrational longer than you can stay
+solvent." Many clients privately agreed that Grantham was probably right, but
+they feared for their own jobs more. In institutional investing, the real risk
+is not losing money — it is "career risk," the danger of being fired for
+underperforming peers. As Keynes also noted: "It is better to fail
+conventionally than to succeed unconconventionally." Most clients preferred to
+lose money alongside everyone else rather than stand alone and be wrong in
+public.
+
+Before the bubble's peak, a wave of legendary value investors fell. Julian
+Robertson's Tiger Fund closed. Gary Brinson was forced out at UBS. Stan
+Druckenmiller stepped down. Grantham survived in part because GMO was a private
+partnership — not publicly listed, answerable to no shareholders each quarter.
+
+In March 2000, the Nasdaq finally peaked and the internet bubble burst,
+beginning a two-and-a-half-year bear market. The stubborn old man who had been
+mocked, abandoned by clients, and driven to the edge of personal bankruptcy was
+about to be vindicated. Mean reversion, it turned out, was gravity — slow but
+inescapable.

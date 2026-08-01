@@ -17,6 +17,9 @@ verdex-debug.txt
 env.txt
 con.txt
 
+# Benchmark output (contains real model outputs — large, not part of the app)
+bench-results/
+
 # Environment variables
 .env
 .env.*
