@@ -1,7 +1,7 @@
 # 已完成功能清单
 
-> v0.1.3 · 全部 ✅ 验证通过（84/84 测试 · tsc 0 · build OK）
-> 最后更新：2026-07-29
+> v0.2.2 · 全部 ✅ 验证通过（88/88 测试 · tsc 0 · build OK）
+> 最后更新：2026-08-02
 
 ## 核心编排
 
@@ -76,6 +76,26 @@
 - Map-Reduce 分支 aborted 检查
 - outputKind 路由（verdict/extract）
 - document_analysis 阶段1提取 → 阶段2 Panel → 阶段3 Judge
+- **空响应重试**（v0.2.2）：一个返回空流的 Panel 现在会触发一次重试（BUG #2 修复）
+
+## P0 Bug 修复（v0.2.2）
+
+| 修复 | 文件 | 说明 |
+|---|---|---|
+| **导出字段错位** | services/assetPacker.ts | `packExtractAsset` 现在能识别 extract 数据里的四字段 verdict 形状并正确拆分取值（而不是把四个字段全部拼成一坨）；+3 个回归测试 |
+| **导出冗余区段** | services/exporters/index.ts | 当 Markdown / Claude-Skill 导出器中 "Structured Data" 区段与四个 verdict 字段重复时，跳过该区段；+1 个回归测试 |
+| **Panel 空响应重试** | services/moaEngine.ts | `runPanel` 在空完成时也会重试（不只是抛错时才重试）—— 针对 benchmark 中观察到的系统性空响应问题 |
+
+## Benchmark 测试架（P1）
+
+| 功能 | 文件 | 说明 |
+|---|---|---|
+| **5-mode benchmark** | scripts/benchmark.ts | M1 单次 / M1R +重试 / M2 单模型流水线 / M3 多模型 Panel+Judge / M4 单模型自我批判；驱动真实引擎 |
+| **运行模式** | 同上 | `npm run bench`（增量 M1R+M4）/ `--full`（全部 5 种）/ `--remediate`（只重跑 M2+M3） |
+| **语料库** | bench-samples/ | 13 个 cases（EN summary + 7 篇 zh-TW ASR + 3 篇大文档 + 1 篇超大 + 1 篇多文档）；可替换为其他领域 |
+| **盲评打分包** | scripts/extract-grading.ts | 为每个 case 生成 A/B 文件供 LLM/人工盲评；A/B→mode 映射保存在 quality-grading-key.json |
+| **工程报告** | 独立论文仓库（+CN） | 可复现报告："Structured Task Decomposition Improves Reliability of LLM-Based Knowledge Analysis" |
+| **过程档案** | docs/HANDOFF/BENCHMARK_JOURNEY_CN.md | P0→P1 工作的完整时间顺序记录，含发现的 bug 和外部评审 |
 
 ## 协议适配（httpClient.ts）
 

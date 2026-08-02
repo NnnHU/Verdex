@@ -1,7 +1,7 @@
 # Verdex 交接文档
 
 > 写给一个**完全没有上下文的新会话**。读本文件 + 按需查看子文档，即可接手开发。
-> v0.1.3 · 2026-07-29 · 核心功能 + Knowledge Vault + 步骤式配置栏全部完成
+> v0.2.2 · 2026-08-02 · 核心功能 + Knowledge Vault + 步骤式配置栏 + P0 bug 修复 + P1 Execution Benchmark 全部完成
 
 ---
 
@@ -25,20 +25,22 @@
 
 5 步引导流程：❶任务 → ❷文档 → ❸提取结构 → ❹分析配置 → ❺选项。按 taskType 条件显示。
 
-## 当前状态（2026-07-29）
+## 当前状态（2026-08-02）
 
-**所有核心功能 + Knowledge Vault 5 阶段 + 步骤式配置栏全部完成。84/84 测试通过。tsc 零错误。build 成功。**
+**所有核心功能 + Knowledge Vault 5 阶段 + 步骤式配置栏 + P0 bug 修复 + P1 Execution Benchmark 全部完成。88/88 测试通过。tsc 零错误。build 成功。**
 
-### 紧急待办：P0 平台全面测试
+### P1 Benchmark 证明了什么
 
-用户正在做 P0 测试（端到端验证三种任务 + Vault + 导出 + 配置）。**测试发现的问题优先修复，不要加新功能。**
+- **可靠性：** 任务分解（extract→analyze→judge）把成功率从 ~31% 提到 ~92%；单靠重试只加 +8 pts。驱动因素是任务分解 —— 不是重试。
+- **质量：** 多模型 Panel+Judge 在 accuracy/coverage/overall/hallucination 上胜过单模型流水线（盲评双 LLM 评分，7/7 评分者一致，人工锚点 3/3 一致）。
+- 完整报告：工程报告（见独立论文仓库，待发布） · 过程：[`BENCHMARK_JOURNEY_CN.md`](./BENCHMARK_JOURNEY_CN.md)
 
-### P0 测试后下一步（按 MULTI_MODEL_REVIEW_CN.md 优先级）
+### 下一步（详见 [ROADMAP-NEXT_CN.md](./ROADMAP-NEXT_CN.md)）
 
-1. P1: 建立 Benchmark（单模型 vs 多模型对比）
-2. P2: Trace Dump（中间产物持久化）
-3. P3: 消费端验证（Claude Skill 实际使用）
-4. 不做: IR Schema 设计（等数据涌现）、Graphify 代码引入
+1. **P2 —— 执行理解：** 流水线为什么能赢？Trace 审视、失败分类学、修复 extract 空响应缺陷。
+2. **P3 —— 真实用户 Benchmark：** 用户能否感知到质量差距？（~20 位用户，需招募）
+3. **P4 —— Knowledge Representation：** 推迟到 P2/P3 表明什么值得持久化之后。
+4. **不做：** IR Schema 设计、Graphify 代码、在没数据情况下继续架构理论讨论。
 
 ## 关键概念
 
@@ -65,8 +67,10 @@
 | 文档 | 用途 |
 |---|---|
 | [COMPLETED.md](./COMPLETED_CN.md) | 已完成功能清单（模块 + 文件位置） |
-| [ROADMAP-NEXT.md](./ROADMAP-NEXT_CN.md) | 下一步计划（按优先级） |
-| [PITFALLS.md](./PITFALLS_CN.md) | ⚠️ 踩过的坑（9 个，绝对不要再踩） |
+| [ROADMAP-NEXT.md](./ROADMAP-NEXT_CN.md) | 下一步计划（P1 benchmark 后修订） |
+| [PITFALLS.md](./PITFALLS_CN.md) | ⚠️ 踩过的坑（9 个 + 2 个架构教训 + 2 个 benchmark 时代的坑） |
+| [BENCHMARK_JOURNEY.md](./BENCHMARK_JOURNEY_CN.md) | 🔬 完整的 P0→P1 过程档案（实验、bug、外部评审） |
+| 工程报告（独立论文仓库 —— 待发布） | 📄 工程报告（那件"硬资产"—— 可复现 benchmark） |
 | [../MULTI_MODEL_REVIEW.md](../MULTI_MODEL_REVIEW_CN.md) | 六模型架构评审（含优先级 + Graphify 评估） |
 | [../KNOWLEDGE_VAULT_DESIGN.md](../KNOWLEDGE_VAULT_DESIGN_CN.md) | 知识仓库设计（5 阶段全部完成） |
 | [../KNOWLEDGE_ASSET_ARCHITECTURE.md](../KNOWLEDGE_ASSET_ARCHITECTURE_CN.md) | Knowledge Asset 战略方向 + 轻量版分支 |
@@ -103,10 +107,11 @@ VITE_VERDEX_MAPREDUCE_FORCE = auto
 `%APPDATA%\com.verdex.app\config.json`（用正斜杠路径访问，见 PITFALLS_CN.md 坑 2）。
 
 ## 核心数据指标
-- **84/84 测试全过**
+- **88/88 测试通过**
 - **tsc 零错误**
 - **build 成功**
-- **已 push GitHub**（至 commit `bb33693`，后续提交待 push）
+- **P1 Benchmark 完成：** 5 modes × 13 cases；可靠性 + 质量都已验证（双 LLM + 人工锚点）
+- **GitHub** 已同步至 commit `9301168`；后续文档更新待提交
 
 ## 文件结构
 ```

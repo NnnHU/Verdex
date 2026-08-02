@@ -1,7 +1,7 @@
 # Verdex Handoff Document
 
 > Written for a **brand-new session with zero context**. Read this file + consult the sub-documents as needed, and you can take over development.
-> v0.1.3 · 2026-07-29 · Core features + Knowledge Vault + stepped config bar all complete
+> v0.2.2 · 2026-08-02 · Core features + Knowledge Vault + stepped config bar + P0 bug fixes + P1 Execution Benchmark all complete
 
 ---
 
@@ -25,20 +25,22 @@ An independent sidebar entry for asset management: browse / search / categorize 
 
 A 5-step guided flow: ❶ Task → ❷ Document → ❸ Extraction structure → ❹ Analysis config → ❺ Options. Conditionally displayed based on taskType.
 
-## Current Status (2026-07-29)
+## Current Status (2026-08-02)
 
-**All core features + Knowledge Vault 5 stages + stepped config bar are fully complete. 84/84 tests passing. tsc zero errors. Build successful.**
+**All core features + Knowledge Vault 5 stages + stepped config bar + P0 bug fixes + P1 Execution Benchmark are complete. 88/88 tests passing. tsc zero errors. Build successful.**
 
-### Urgent Todo: P0 Platform-Wide Testing
+### What was proven by the P1 Benchmark
 
-The user is currently running P0 testing (end-to-end verification of all three tasks + Vault + export + config). **Fix any issues found in testing first — do not add new features.**
+- **Reliability:** task decomposition (extract→analyze→judge) lifts success from ~31% to ~92%; retry alone adds only +8 pts. Decomposition — not retry — is the driver.
+- **Quality:** multi-model Panel+Judge beats single-model pipeline on accuracy/coverage/overall/hallucination (blinded dual-LLM grading, 7/7 judge agreement, human-anchored 3/3).
+- Full report: the Engineering Report (in the separate paper repository, to be published) · process: [`BENCHMARK_JOURNEY.md`](./BENCHMARK_JOURNEY.md)
 
-### Next Steps After P0 Testing (by MULTI_MODEL_REVIEW.md priority)
+### Next Steps (see [ROADMAP-NEXT.md](./ROADMAP-NEXT.md) for detail)
 
-1. P1: Build a Benchmark (single-model vs multi-model comparison)
-2. P2: Trace Dump (persist intermediate artifacts)
-3. P3: Consumer validation (actual Claude Skill usage)
-4. Not doing: IR Schema design (wait for data to emerge), Graphify code integration
+1. **P2 — Execution Understanding:** why does the pipeline win? Trace inspection, failure taxonomy, fix the extract empty-response defect.
+2. **P3 — Real User Benchmark:** do users perceive the quality gap? (~20 users, requires recruitment)
+3. **P4 — Knowledge Representation:** deferred until P2/P3 show what's worth persisting.
+4. **Not doing:** IR Schema design, Graphify code, more architecture theory without data.
 
 ## Key Concepts
 
@@ -65,8 +67,10 @@ The user is currently running P0 testing (end-to-end verification of all three t
 | Document | Purpose |
 |---|---|
 | [COMPLETED.md](./COMPLETED.md) | Completed feature list (modules + file locations) |
-| [ROADMAP-NEXT.md](./ROADMAP-NEXT.md) | Next-step plan (by priority) |
-| [PITFALLS.md](./PITFALLS.md) | ⚠️ Pitfalls encountered (9 in total — never step into them again) |
+| [ROADMAP-NEXT.md](./ROADMAP-NEXT.md) | Next-step plan (revised after P1 benchmark) |
+| [PITFALLS.md](./PITFALLS.md) | ⚠️ Pitfalls (9 + 2 architecture lessons + 2 benchmark-era pitfalls) |
+| [BENCHMARK_JOURNEY.md](./BENCHMARK_JOURNEY.md) | 🔬 Full P0→P1 process archive (experiments, bugs, external reviews) |
+| Engineering Report (separate paper repository — to be published) | 📄 Engineering Report (the "hard asset" — reproducible benchmark) |
 | [../MULTI_MODEL_REVIEW.md](../MULTI_MODEL_REVIEW.md) | Six-model architecture review (includes priorities + Graphify assessment) |
 | [../KNOWLEDGE_VAULT_DESIGN.md](../KNOWLEDGE_VAULT_DESIGN.md) | Knowledge Vault design (all 5 stages complete) |
 | [../KNOWLEDGE_ASSET_ARCHITECTURE.md](../KNOWLEDGE_ASSET_ARCHITECTURE.md) | Knowledge Asset strategic direction + lite-version branch |
@@ -103,10 +107,11 @@ VITE_VERDEX_MAPREDUCE_FORCE = auto
 `%APPDATA%\com.verdex.app\config.json` (access it with a forward-slash path — see PITFALLS.md pitfall 2).
 
 ## Core Metrics
-- **84/84 tests passing**
+- **88/88 tests passing**
 - **tsc zero errors**
 - **Build successful**
-- **Pushed to GitHub** (up to commit `bb33693`, subsequent commits pending push)
+- **P1 Benchmark complete:** 5 modes × 13 cases; reliability + quality validated (dual-LLM + human anchor)
+- **GitHub** in sync through commit `9301168`; further doc updates pending commit
 
 ## File Structure
 ```

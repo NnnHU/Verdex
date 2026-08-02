@@ -239,6 +239,44 @@ function isUsableVerdict(raw: string, fields: ReturnType<typeof verdictFields>):
   return countNonEmpty(fields) === 4;
 }
 
+/**
+ * Run streamChat with a retry on empty/transient failures (mirrors moaEngine
+ * runPanel + M1R logic). Used by M2/M3 extract pre-stages so an empty extract
+ * response doesn't silently poison the whole pipeline.
+ * Returns { text, attempts }. attempts = number of API calls actually made.
+ *
+ * Note: extract prompts hit a higher empty-response rate than the engine's
+ * panel calls, so we default to 4 attempts (vs the engine's 2) with a longer
+ * backoff — empirically needed to get usable extract outputs.
+ */
+async function streamChatWithRetry(
+  opts: Parameters<typeof streamChat>[0],
+  maxAttempts = 4,
+  backoffMs = 1200
+): Promise<{ text: string; attempts: number }> {
+  let lastText = "";
+  let attempts = 0;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    attempts++;
+    try {
+      const text = await streamChat(opts, () => {});
+      lastText = text;
+      if (text.trim()) return { text, attempts };
+      // empty body → retry (if attempts remain)
+      if (attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, backoffMs));
+      }
+    } catch (err) {
+      if (attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, backoffMs));
+      } else {
+        throw err;
+      }
+    }
+  }
+  return { text: lastText, attempts };
+}
+
 async function runMode1R(
   provider: AIProvider, docText: string, query: string, timeoutMs: number
 ): Promise<ModeResult> {
@@ -412,16 +450,15 @@ async function runMode2(
       "Document:",
       docText,
     ].join("\n");
-    const extracted = await streamChat(
-      {
-        baseUrl: provider.baseUrl, apiKey: provider.apiKey, model: provider.modelString,
-        messages: [{ role: "user", content: extractPrompt }],
-        temperature: 0.5, maxTokens: 2048, timeoutMs, protocol: provider.protocol,
-      },
-      () => {}
-    );
+    const extractResult = await streamChatWithRetry({
+      baseUrl: provider.baseUrl, apiKey: provider.apiKey, model: provider.modelString,
+      messages: [{ role: "user", content: extractPrompt }],
+      temperature: 0.5, maxTokens: 2048, timeoutMs, protocol: provider.protocol,
+    });
+    const extracted = extractResult.text;
     trace.extractPrompt = extractPrompt;
     trace.extracted = extracted;
+    trace.extractAttempts = extractResult.attempts;
 
     // Step 2+3: analyze + judge via the real engine, panelIds = [this model].
     // The "panel" analyzes the extracted knowledge; the judge synthesizes.
@@ -499,16 +536,15 @@ async function runMode3(
       docText,
     ].join("\n");
     const firstProvider = providers[0];
-    const extracted = await streamChat(
-      {
-        baseUrl: firstProvider.baseUrl, apiKey: firstProvider.apiKey, model: firstProvider.modelString,
-        messages: [{ role: "user", content: extractPrompt }],
-        temperature: 0.5, maxTokens: 2048, timeoutMs, protocol: firstProvider.protocol,
-      },
-      () => {}
-    );
+    const extractResult = await streamChatWithRetry({
+      baseUrl: firstProvider.baseUrl, apiKey: firstProvider.apiKey, model: firstProvider.modelString,
+      messages: [{ role: "user", content: extractPrompt }],
+      temperature: 0.5, maxTokens: 2048, timeoutMs, protocol: firstProvider.protocol,
+    });
+    const extracted = extractResult.text;
     trace.extractPrompt = extractPrompt;
     trace.extracted = extracted;
+    trace.extractAttempts = extractResult.attempts;
 
     const analysisPrompt = [
       "Based on the following extracted knowledge, answer the question.",
@@ -729,9 +765,14 @@ function writeSummary(runId: string, bundles: CaseResultBundle[]): void {
 
 async function main(): Promise<void> {
   mkdirSync(RESULTS_DIR, { recursive: true });
-  // Default: run only the new modes (M1R + M4) and merge with prior M1/M2/M3
-  // traces. Pass --full to re-run all five modes in one batch.
+  // Modes:
+  //   (default)  INCREMENTAL — run M1R+M4, merge prior M1/M2/M3
+  //   --full     re-run all five modes in one batch
+  //   --remediate — re-run ONLY M2+M3 (e.g. after fixing an extract-retry bug),
+  //                overwriting their traces in place. Used to regenerate usable
+  //                M2/M3 outputs for quality grading without touching M1/M1R/M4.
   const fullRun = process.argv.includes("--full");
+  const remediate = process.argv.includes("--remediate");
 
   const env = parseEnv();
   const p1 = buildProvider(env, "", "bench-provider-1");
@@ -742,18 +783,25 @@ async function main(): Promise<void> {
   }
   const providers = p2 ? [p1, p2] : [p1];
   console.log(`▶ Loaded ${providers.length} provider(s): ${providers.map((p) => p.name).join(", ")}`);
-  console.log(`▶ Mode: ${fullRun ? "FULL (all 5 modes re-run)" : "INCREMENTAL (M1R+M4 only, merge prior M1/M2/M3)"}`);
+  const modeLabel = fullRun ? "FULL (all 5 modes)"
+    : remediate ? "REMEDIATE (M2+M3 only, overwrite prior traces)"
+    : "INCREMENTAL (M1R+M4 only, merge prior M1/M2/M3)";
+  console.log(`▶ Mode: ${modeLabel}`);
 
   const { cases, docs } = loadSamples();
   console.log(`▶ Loaded ${cases.length} case(s) from bench-samples/`);
 
   const timeoutMs = Number(env.VITE_VERDEX_REQUEST_TIMEOUT_MS) || 360000;
-  const runId = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  // In remediate mode, write into the SAME run id as the v1 baseline so the
+  // updated M2/M3 traces replace the broken ones in place.
+  const runId = remediate
+    ? "2026-08-01T19-50-03"
+    : new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 
   // In incremental mode, locate the most recent prior run that has M1/M2/M3
   // traces, so we can merge its results into the 5-mode report.
-  const priorRunId = fullRun ? null : findPriorRunId(cases);
-  if (!fullRun && priorRunId) {
+  const priorRunId = (!fullRun && !remediate) ? findPriorRunId(cases) : null;
+  if (!fullRun && !remediate && priorRunId) {
     console.log(`▶ Merging prior M1/M2/M3 data from run ${priorRunId}`);
   } else if (!fullRun) {
     console.log("⚠ No prior M1/M2/M3 trace found — report will only show M1R/M4.");
@@ -770,6 +818,25 @@ async function main(): Promise<void> {
       console.log(`  Q: ${q.text.slice(0, 80)}...`);
 
       const results: ModeResult[] = [];
+
+      if (remediate) {
+        // Re-run only M2 and M3 (with the fixed extract-retry), overwriting
+        // their entries in this case's trace. M1/M1R/M4 are left untouched.
+        console.log("  ▷ M2 single-model multi-step (extract-retry fix)...");
+        results.push(await runMode2(p1, corpusText, q.text, timeoutMs));
+        console.log(`    ✓ ${results.at(-1)!.ok ? "ok" : "FAILED"} in ${(results.at(-1)!.latencyMs / 1000).toFixed(1)}s`);
+
+        if (p2) {
+          console.log("  ▷ M3 multi-model Panel+Judge (extract-retry fix)...");
+          results.push(await runMode3(providers, [p1.id, p2.id], p1.id, corpusText, q.text, timeoutMs));
+          console.log(`    ✓ ${results.at(-1)!.ok ? "ok" : "FAILED"} in ${(results.at(-1)!.latencyMs / 1000).toFixed(1)}s`);
+        }
+        // Merge: load M1 from prior trace, keep fresh M2/M3 (skip M1R/M4).
+        const prior = loadPriorResults(runId, c.id, q.id).filter((r) => r.mode === "M1-single-shot");
+        writeReport(runId, c.id, corpusText.length, sourceNames, q.id, q.text, [...prior, ...results]);
+        console.log(`  ▶ Remediated trace written: bench-results/${runId}-${c.id}-${q.id}-trace.json`);
+        continue;
+      }
 
       if (fullRun) {
         console.log("  ▷ M1 single-model single-shot...");
@@ -806,6 +873,12 @@ async function main(): Promise<void> {
       console.log(`  ▶ Report written to bench-results/${runId}-${c.id}-${q.id}-report.md`);
       allCaseResults.push({ caseId: c.id, queryId: q.id, query: q.text, docChars: corpusText.length, sourceNames, results });
     }
+  }
+
+  if (remediate) {
+    console.log(`\n✓ Remediation complete. M2/M3 traces overwritten in run ${runId}.`);
+    console.log(`  Re-run grading-pack generation to use the fresh outputs.`);
+    return;
   }
 
   writeSummary(runId, allCaseResults);

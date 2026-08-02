@@ -1,7 +1,7 @@
 # ⚠️ Pitfalls (Never Step on These Again)
 
-> 9 real pitfalls encountered + 2 architecture lessons. New sessions must read this first.
-> Last updated: 2026-07-29
+> 9 real pitfalls + 2 architecture lessons + 2 benchmark-era pitfalls. New sessions must read this first.
+> Last updated: 2026-08-02
 
 ---
 
@@ -91,3 +91,21 @@
 **Root cause**: In dev mode, the setSessions functional update is called twice.
 **Fix**: Use `packedTurnsRef` (a `Set<turnId>`) as a dedup guard.
 **Lesson**: Any side effect inside a setSessions/setXxx functional update (such as writing derived state) needs a dedup guard.
+
+---
+
+## Benchmark Pitfall 1: Empty extract response poisons the whole pipeline
+
+**Symptom**: M2/M3 outputs read "cannot answer — extracted knowledge is empty"; graders score them 1/5.
+**Root cause**: The extract pre-stage (`streamChat` directly, no retry) frequently returns an empty string on DeepSeek. That empty "extracted knowledge" is fed to Panel and Judge, who correctly report they cannot answer — but the *whole turn* looks like a model failure when really only the extract step failed.
+**Fix**: `streamChatWithRetry` (4 attempts, 1.2s backoff) on the extract step. Usable-case rate rose from 1/13 to 7/13.
+**Lesson**: An empty response *anywhere* in a multi-step pipeline silently degrades everything downstream. Every stage that feeds the next needs its own empty-response guard, not just the final call.
+
+---
+
+## Benchmark Pitfall 2: Parse placeholders counted as success (the most dangerous bug)
+
+**Symptom**: The auto-generated benchmark SUMMARY reported "100% success" for every mode — implausibly clean.
+**Root cause**: `parseJudgeResponse` emits non-empty placeholder strings on failure (`"(could not parse structured consensus)"`, `"(judge returned no content)"`). A naive "non-empty field = success" check counted these placeholders as success, hiding the real ~31% failure rate of single-shot mode.
+**Fix**: Introduced `isPlaceholder()` to exclude parse-fallback strings; success requires *real* content, not just non-empty strings.
+**Lesson**: *The most dangerous failures are the ones that look like success.* Always sanity-check "too clean" results against plausibility, and define success by content validity — not by structural non-emptiness. This bug would have made the entire benchmark worthless if not caught.

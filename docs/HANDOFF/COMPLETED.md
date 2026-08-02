@@ -1,7 +1,7 @@
 # Completed Features Checklist
 
-> v0.1.3 · All ✅ Verified (84/84 tests · tsc 0 · build OK)
-> Last updated: 2026-07-29
+> v0.2.2 · All ✅ Verified (88/88 tests · tsc 0 · build OK)
+> Last updated: 2026-08-02
 
 ## Core Orchestration
 
@@ -76,6 +76,26 @@
 - Map-Reduce branch aborted check
 - outputKind routing (verdict/extract)
 - document_analysis: stage 1 extract → stage 2 Panel → stage 3 Judge
+- **Empty-response retry** (v0.2.2): a panel returning an empty stream now triggers one retry (BUG #2 fix)
+
+## P0 Bug Fixes (v0.2.2)
+
+| Fix | File | Description |
+|---|---|---|
+| **Export field-mixing** | services/assetPacker.ts | `packExtractAsset` now detects the four-field verdict shape in extract data and splits values correctly (instead of joining all four into one blob); +3 regression tests |
+| **Export redundant section** | services/exporters/index.ts | Markdown / Claude-Skill exporters skip the "Structured Data" section when it duplicates the four verdict fields; +1 regression test |
+| **Panel empty-response retry** | services/moaEngine.ts | `runPanel` retries on empty completion (not just thrown errors) — addresses the systemic empty-response problem seen in benchmarks |
+
+## Benchmark Harness (P1)
+
+| Feature | File | Description |
+|---|---|---|
+| **5-mode benchmark** | scripts/benchmark.ts | M1 single-shot / M1R +retry / M2 single-model pipeline / M3 multi-model Panel+Judge / M4 single self-critique; drives the real engine |
+| **Run modes** | same | `npm run bench` (incremental M1R+M4) / `--full` (all 5) / `--remediate` (re-run M2+M3 only) |
+| **Corpus** | bench-samples/ | 13 cases (EN summary + 7 zh-TW ASR + 3 large + 1 super-large + 1 multi-doc); swappable for other domains |
+| **Blinded grading pack** | scripts/extract-grading.ts | Generates per-case A/B files for LLM/human blinded grading; A/B→mode mapping kept in quality-grading-key.json |
+| **Engineering Report** | separate paper repository (+CN) | Reproducible report: "Structured Task Decomposition Improves Reliability of LLM-Based Knowledge Analysis" |
+| **Process archive** | docs/HANDOFF/BENCHMARK_JOURNEY.md (+CN) | Full chronological record of the P0→P1 work, including bugs found and external reviews |
 
 ## Protocol Adapter (httpClient.ts)
 

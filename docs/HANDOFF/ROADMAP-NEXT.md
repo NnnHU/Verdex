@@ -1,74 +1,90 @@
 # Roadmap Next
 
-> All items are optional, with no blockers. Listed in priority order.
-> Last updated: 2026-07-29
+> Revised 2026-08-02 after P0 + P1 completion and external review. Priorities
+> reshaped by benchmark findings — see [BENCHMARK_JOURNEY.md](./BENCHMARK_JOURNEY.md)
+> for how the conclusions were reached, and the Engineering Report (in the
+> separate paper repository, to be published) for the reproducible report.
 
-## 🔴 P0: Full-Platform Testing (in progress)
+---
 
-The user is end-to-end testing the existing platform. Issues surfaced during testing are fixed first.
+## ✅ Completed
 
-Coverage scope:
-- All three task types (document_extract/analysis/quick_qa)
-- All Knowledge Vault features
-- Export (Claude Skill/MD/JSON)
-- Step-by-step flow in the config bar
-- Experience features (timer/Stop/progress/copy as MD)
+### P0 — Platform-wide testing (done, v0.2.2)
+- T1–T7 functional tests all passed.
+- Fixed 2 bugs found in testing: export field-mixing, panel empty-response retry.
+- 88/88 tests passing.
 
-## 🔴 Strategic Direction: Validate Core Hypotheses
+### P1 — Execution Benchmark (done)
+- 5-mode benchmark harness (M1/M1R/M2/M3/M4) on a 13-case corpus.
+- **Reliability finding:** task decomposition lifts success 31%→92%; retry alone +8 pts; decomposition is the driver.
+- **Quality finding:** multi-model Panel+Judge beats single-model pipeline on accuracy/coverage/overall/hallucination (blinded dual-LLM grading, 7/7 agreement, human-anchored 3/3).
+- Outputs: `scripts/benchmark.ts`, the Engineering Report (separate paper repository), `docs/HANDOFF/BENCHMARK_JOURNEY.md`.
 
-See [`../MULTI_MODEL_REVIEW.md`](../MULTI_MODEL_REVIEW.md)
+---
 
-Two hypotheses that must be validated:
-1. Does a structured multi-step flow (extract→analyze→judge) produce better output than a single-shot answer?
-2. Are the resulting knowledge assets reusable?
+## 🔴 Strategic shift (from benchmark + external review)
 
-## 🟡 P1: Benchmark
+The benchmark changed Verdex's validated value proposition. Everything we
+proved is about **Execution** (reliability, decomposition, multi-model
+quality) — nothing tested is about **Knowledge Representation** (IR / Skill).
+The roadmap below reflects this: execution understanding next, knowledge
+representation deferred until we know what's worth representing.
 
-- Collect 10-20 real cases
-- Single-model vs single-model multi-step vs multi-model + Judge
-- Save all intermediate artifacts (Trace Dump)
-- Compare: coverage / hallucination rate / traceability
+---
 
-## 🟡 P2: Trace Dump
+## 🟡 P2 — Execution Understanding (next)
 
-- Persist full Panel/Judge output
-- Accumulate data for the IR Schema to emerge
+Understand *why* the pipeline wins, not just *that* it wins.
 
-## 🟢 P3: Consumer-Side Validation
+- **Trace inspection:** analyze the remediated traces to characterize *when*
+  each mode fails and *what* decomposition changes about the failure mode.
+- **Failure taxonomy:** empty-response vs parse-failure vs refusal vs
+  low-quality-but-valid — which does decomposition actually fix?
+- **Extract-step robustness:** the extract pre-stage has a high empty-response
+  rate (6/13 cases even with 4× retry). Investigate root cause (prompt
+  structure? streaming? model behavior?) — this is both a research question
+  and a product defect.
+- **Judge-input confound resolution:** the one residual confound in M2 vs M3
+  (M3's Judge gets 2 analyses, M2's gets 1). Run the isolating experiment:
+  feed M2's Judge two copies of the same single-model analysis.
 
-- Take Claude Skill export to the extreme
-- Validate "the Skills produced by Verdex are actually used by Claude"
+## 🟢 P3 — Real User Benchmark (validate perceived value)
 
-## 🔵 Knowledge Vault Next Steps (design docs marked 🔜)
+The benchmark proved M3 > M2 on *objective* quality. The open question
+(ChatGPT's framing): **do users perceive the +0.9 quality gap?** If not, the
+commercial value of multi-model is zero regardless of benchmark scores.
 
-- Ad-hoc grouping (AI organizes across categories)
-- Filter by source/time range
-- Edit asset categories (currently done one-by-one via 📁)
+- Recruit ~20 users for a between-subjects task study.
+- Randomize M2 vs M3 output; measure: completion time, revisions needed,
+  follow-up questions, copy/adopt behavior, stated preference.
+- Metrics that map to commercial value, not just objective quality.
+- Requires user recruitment (owner's capability) — design first, then assess
+  feasibility.
 
-## 🔵 Extensibility
+## 🔵 P4 — Knowledge Representation (deferred)
 
-- PDF/Word (requires a Rust crate)
-- Session search
-- IndexedDB to replace localStorage
-- Dynamic threshold
+Only after P2/P3 confirm *what* is worth persisting.
 
-## 🔵 Architecture Extensions (see the respective design docs)
+- Knowledge IR schema design (wait for execution-understanding data to emerge).
+- Skill / MCP export hardening (consumer-side validation).
+- The benchmark showed "what produces value"; this phase decides "what to
+  save from that value."
 
-- Python code execution (THREE_STAGE_ARCHITECTURE.md §9)
-- MCP Server (KNOWLEDGE_ASSET_ARCHITECTURE.md)
-- Lightweight version (KNOWLEDGE_ASSET_ARCHITECTURE.md §6)
-- Inter-stage human review / dynamic model assignment / stage caching
+## ⚪ Maintenance / known issues
 
-## ⚪ Original Author's Audit Leftovers (intentionally kept)
+- **Extract empty-response** (product defect): 6/13 benchmark cases had
+  extract return empty even after 4× retry. Affects real users, not just
+  benchmarks. Root-cause investigation belongs in P2 but a stopgap
+  (non-streaming fallback? prompt rewrite?) may be warranted sooner.
+- **Original author's audit leftovers** (intentionally kept): Anthropic system
+  double-send, DEFAULT_JUDGE_PROMPT fallback, toggleSidebar/clearError not
+  memoized, SettingsModal double-mount.
 
-- Anthropic system double-send (latent bug)
-- DEFAULT_JUDGE_PROMPT fallback
-- toggleSidebar/clearError not memoized
-- SettingsModal double-mount
+## ❌ Explicitly NOT doing (for now)
 
-## ❌ Explicitly NOT Doing
-
-- Knowledge IR Schema design (wait for data to emerge)
-- Pulling in Graphify code (ideas already absorbed)
-- Separating Synthesizer + Arbitrator (awaiting validation)
-- Evidence→Inference→Claim→Decision chain (over-engineering)
+- Knowledge IR Schema design (wait for P2/P3 data).
+- Pulling in Graphify code (ideas already absorbed).
+- Separating Synthesizer + Arbitrator (awaiting validation).
+- Evidence→Inference→Claim→Decision chain (over-engineering).
+- Continuing architecture-theory discussion without data (the benchmark was
+  the antidote to this — see MULTI_MODEL_REVIEW.md §8).
