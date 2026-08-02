@@ -180,6 +180,24 @@ No third-party AI frameworks. No backend server. Pure native orchestration.
 
 ---
 
+## 🔬 Theoretical Foundation
+
+Verdex's architecture is grounded in empirical research. A reproducible benchmark
+comparing five LLM execution strategies (single-shot, retry, single-model pipeline,
+multi-model Panel+Judge, self-critique) on a 13-case corpus validates the core design:
+
+- **Task decomposition** (extract → analyze → judge) lifts the success rate of
+  returning valid structured output from ~31% to ~92% — the gain comes from
+  decomposition itself, not from retrying.
+- **Multi-model Panel+Judge** produces higher-quality output than a single-model
+  pipeline on accuracy, coverage, and hallucination rate (blinded dual-LLM grading,
+  human-anchored).
+
+→ **Benchmark, dataset manifest & reference implementation:**
+[llm-reliability-benchmark](https://github.com/NnnHU/llm-reliability-benchmark)
+
+---
+
 ## 📋 Requirements
 
 - Any OpenAI-compatible API (DeepSeek, Qwen, Groq, etc.)

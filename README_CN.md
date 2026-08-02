@@ -178,6 +178,22 @@ Model:     deepseek-ai/DeepSeek-V3
 
 ---
 
+## 🔬 理论基础
+
+Verdex 的架构有实证研究支撑。一份可复现的 benchmark 对比了五种 LLM 执行策略
+（单次调用、重试、单模型流水线、多模型 Panel+Judge、自我批判），在 13 个案例语料上
+验证了核心设计：
+
+- **任务分解**（提取 → 分析 → 裁判）把成功返回有效结构化输出的比例从 ~31% 提升到
+  ~92%——增益来自分解本身，而非重试。
+- **多模型 Panel+Judge** 在准确率、覆盖率、幻觉率上均优于单模型流水线（盲评双 LLM
+  交叉打分，人工锚点校准）。
+
+→ **Benchmark、语料指纹与参考实现：**
+[llm-reliability-benchmark](https://github.com/NnnHU/llm-reliability-benchmark)
+
+---
+
 ## 📋 环境要求
 
 - 任何 OpenAI 兼容 API（DeepSeek、Qwen、Groq 等）
