@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "bench": "tsx scripts/benchmark.ts",
+    "bench:full": "tsx scripts/benchmark.ts --full",
     "tauri": "tauri"
   },
   "dependencies": {
