@@ -274,7 +274,12 @@ async function streamChatWithRetry(
       }
     }
   }
-  return { text: lastText, attempts };
+  // All attempts returned empty — throw so the caller treats this as a real
+  // failure instead of silently propagating "" downstream (which previously
+  // produced ok:true garbage verdicts like "cannot answer, extracted knowledge
+  // is empty"). The empty itself is a model-side quirk; the silent propagation
+  // was the fixable Verdex bug.
+  throw new Error(`streamChat returned empty after ${attempts} attempts`);
 }
 
 async function runMode1R(
@@ -441,22 +446,38 @@ async function runMode2(
   const start = nowMs();
   const trace: Record<string, unknown> = {};
   try {
-    // Step 1: extract — one call that turns the doc into structured knowledge.
-    const extractPrompt = [
-      "Read the document and extract its core structured knowledge as concise notes.",
-      "Focus on: key events, core arguments, named entities, and stated lessons.",
-      "Output plain text notes, not JSON.",
+    // Step 1: extract — turn the doc into structured knowledge notes.
+    // Prompt mirrors the production app's extract path (system message carries
+    // the doc + instruction; JSON output; temperature 0.3; maxTokens 8192)
+    // rather than the earlier "plain text, not JSON" variant, which triggered
+    // a high empty-response rate on DeepSeek (a JSON-tuned model asked to
+    // suppress JSON). Output is JSON notes consumed by the Panel downstream.
+    const extractSys = [
+      "You are a knowledge extraction engine. Read the source document and extract",
+      "its core structured knowledge as concise notes for downstream analysis.",
+      "Focus on: key events, core arguments, named entities, specific numbers/dates, and stated lessons.",
       "",
-      "Document:",
+      "Output ONLY a JSON object (no markdown fences, no prose) with this shape:",
+      '{ "summary": string, "keyPoints": string[], "entities": string[], "numbers": string[] }',
+      "- summary: 2-3 sentence overview of the document.",
+      "- keyPoints: the main arguments/events, each as a concise string.",
+      "- entities: named people, organizations, assets mentioned.",
+      "- numbers: specific figures, dates, ratios cited.",
+      "",
+      "Source document:",
       docText,
     ].join("\n");
+    const extractUser = "Extract the structured notes from the source document and output the JSON object.";
     const extractResult = await streamChatWithRetry({
       baseUrl: provider.baseUrl, apiKey: provider.apiKey, model: provider.modelString,
-      messages: [{ role: "user", content: extractPrompt }],
-      temperature: 0.5, maxTokens: 2048, timeoutMs, protocol: provider.protocol,
+      messages: [
+        { role: "system", content: extractSys },
+        { role: "user", content: extractUser },
+      ],
+      temperature: 0.3, maxTokens: 8192, timeoutMs, protocol: provider.protocol,
     });
     const extracted = extractResult.text;
-    trace.extractPrompt = extractPrompt;
+    trace.extractPrompt = { system: extractSys, user: extractUser };
     trace.extracted = extracted;
     trace.extractAttempts = extractResult.attempts;
 
@@ -527,22 +548,36 @@ async function runMode3(
   try {
     // M3 includes the extract pre-stage too (document_analysis), so the
     // comparison vs M2 is about multi-model panel, not about skipping extract.
-    const extractPrompt = [
-      "Read the document and extract its core structured knowledge as concise notes.",
-      "Focus on: key events, core arguments, named entities, and stated lessons.",
-      "Output plain text notes, not JSON.",
+    // Same production-aligned extract prompt as M2 (system message + JSON notes
+    // + temperature 0.3 + maxTokens 8192) to keep the variable isolated to
+    // "model count", not "extract prompt".
+    const extractSys = [
+      "You are a knowledge extraction engine. Read the source document and extract",
+      "its core structured knowledge as concise notes for downstream analysis.",
+      "Focus on: key events, core arguments, named entities, specific numbers/dates, and stated lessons.",
       "",
-      "Document:",
+      "Output ONLY a JSON object (no markdown fences, no prose) with this shape:",
+      '{ "summary": string, "keyPoints": string[], "entities": string[], "numbers": string[] }',
+      "- summary: 2-3 sentence overview of the document.",
+      "- keyPoints: the main arguments/events, each as a concise string.",
+      "- entities: named people, organizations, assets mentioned.",
+      "- numbers: specific figures, dates, ratios cited.",
+      "",
+      "Source document:",
       docText,
     ].join("\n");
+    const extractUser = "Extract the structured notes from the source document and output the JSON object.";
     const firstProvider = providers[0];
     const extractResult = await streamChatWithRetry({
       baseUrl: firstProvider.baseUrl, apiKey: firstProvider.apiKey, model: firstProvider.modelString,
-      messages: [{ role: "user", content: extractPrompt }],
-      temperature: 0.5, maxTokens: 2048, timeoutMs, protocol: firstProvider.protocol,
+      messages: [
+        { role: "system", content: extractSys },
+        { role: "user", content: extractUser },
+      ],
+      temperature: 0.3, maxTokens: 8192, timeoutMs, protocol: firstProvider.protocol,
     });
     const extracted = extractResult.text;
-    trace.extractPrompt = extractPrompt;
+    trace.extractPrompt = { system: extractSys, user: extractUser };
     trace.extracted = extracted;
     trace.extractAttempts = extractResult.attempts;
 

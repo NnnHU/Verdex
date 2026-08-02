@@ -398,13 +398,24 @@ export async function streamChat(
   const userCancelled = () => Boolean(externalSignal?.aborted);
 
   try {
-    return await streamSse(
+    const streamed = await streamSse(
       fetchImpl,
       prepared,
       protocol,
       controller.signal,
       onDelta
     );
+    // The streaming call succeeded at the transport level but the model may
+    // still have produced zero content tokens (an empty completion). Surface
+    // this as a warning so it shows up during debugging — do NOT throw, since
+    // some legitimate calls (e.g. tool-only responses) can be empty.
+    if (!streamed.trim()) {
+      console.warn(
+        `[httpClient] streamChat returned empty content (model=${opts.model}, ` +
+        `baseUrl=${opts.baseUrl}). The API sent a complete-but-empty response.`
+      );
+    }
+    return streamed;
   } catch (streamErr) {
     // User cancellation — propagate as a distinct error so callers can tell
     // it apart from timeout/network failure.
