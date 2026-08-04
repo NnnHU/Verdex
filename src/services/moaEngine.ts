@@ -39,25 +39,30 @@ import { validateExtract } from "./schemaValidator";
 /** The canonical default four-field judge prompt (English). Used as the
  *  fallback in buildJudgeSystemPrompt and as DEFAULT_JUDGE_PROMPTS[0]. */
 const DEFAULT_JUDGE_SYSTEM_PROMPT = [
-  "You are a top-tier Mixture-of-Agents Judge.",
-  "Multiple experts (Panels) will each give an independent answer to the same question.",
-  "Your job is to synthesize all expert answers into a structured final verdict.",
+  "You are a top-tier analytical judge.",
+  "Below are several independent analyses of the same question, produced by different sources.",
+  "Your job is to synthesize them into one structured final verdict.",
   "",
-  "【Expert answers】",
+  "【Analyses】",
   "{PANELS}",
   "",
   "【Output requirements】",
   "You must output ONLY a JSON object — no Markdown code fences, no prefix/suffix prose.",
   "The JSON must contain exactly these four fields (field names must match exactly):",
-  '  - "consensus": string. The core consensus that all/most experts agree on.',
-  '  - "divergence": string. Meaningful divergence where experts disagree.',
-  '  - "blindspots": string. Blind spots / overlooked insights only one or few experts raised.',
-  '  - "verdict": string. Your final verdict as the judge. Must be clear and actionable.',
+  '  - "consensus": string. The core points on which the analyses converge.',
+  '  - "divergence": string. Meaningful differences in conclusions or emphasis across the analyses.',
+  '  - "blindspots": string. Important points raised by only one analysis that others overlooked.',
+  '  - "verdict": string. Your final synthesized verdict. Must be clear and actionable.',
+  "",
+  "CRITICAL: Write each field as coherent, self-contained prose.",
+  "Do NOT mention 'analysis 1', 'analysis 2', 'expert', 'source', or any internal label.",
+  "Do NOT write meta-commentary about which analysis said what.",
+  "The reader sees ONLY the final four fields — write them as if you are the sole author.",
   "",
   "Example format:",
   '{"consensus":"...","divergence":"...","blindspots":"...","verdict":"..."}',
   "",
-  "Now synthesize the expert answers above and output that JSON.",
+  "Now synthesize the analyses above and output that JSON.",
 ].join("\n");
 
 export const DEFAULT_JUDGE_PROMPTS: JudgePromptTemplate[] = [
@@ -83,6 +88,7 @@ export const DEFAULT_JUDGE_PROMPTS: JudgePromptTemplate[] = [
       '  "blindspots": overlooked logical premises or counterexamples;',
       '  "verdict": final verdict based on argumentative validity.',
       'Format: {"consensus":"...","divergence":"...","blindspots":"...","verdict":"..."}',
+      'Do NOT reference "Expert 1/2" or panel labels in the output — write unified prose.',
     ].join("\n"),
   },
   {
@@ -102,6 +108,7 @@ export const DEFAULT_JUDGE_PROMPTS: JudgePromptTemplate[] = [
       '  "blindspots": insights invisible from a single perspective but apparent after synthesis;',
       '  "verdict": your synthesized verdict; if it cannot converge, state conditions for each lean.',
       'Format: {"consensus":"...","divergence":"...","blindspots":"...","verdict":"..."}',
+      'Do NOT reference "Expert 1/2" or panel labels in the output — write unified prose.',
     ].join("\n"),
   },
 ];
@@ -321,14 +328,16 @@ function findProvider(
   return providers.find((p) => p.id === id);
 }
 
-/** Render the panel answers block inserted into any judge system prompt. */
+/** Render the panel answers block inserted into any judge system prompt.
+ *  Uses "Analysis from <model>" headers (not "Expert 1/2") to prevent the
+ *  Judge from leaking panel-structure meta-commentary ("Expert 1 said...")
+ *  into the final verdict output. */
 function renderPanelBlock(results: PanelResult[]): string {
-  const expertWord = i18n.language === "zh" ? "专家" : "Expert";
   const emptyBody = i18n.language === "zh" ? "(该专家未返回有效内容)" : "(this expert returned no content)";
   const failedPrefix = i18n.language === "zh" ? "(调用失败:" : "(call failed: ";
   return results
-    .map((r, i) => {
-      const header = `### ${expertWord} ${i + 1}: ${r.label}`;
+    .map((r) => {
+      const header = `### Analysis from ${r.label}`;
       const body = r.ok
         ? r.text.trim() || emptyBody
         : `${failedPrefix}${r.error ?? i18n.t("common.unknownError")})`;
@@ -444,11 +453,45 @@ export function parseJudgeResponse(
 
   return {
     kind: "verdict",
-    consensus: str(parsed.consensus, "consensus"),
-    divergence: str(parsed.divergence, "divergence"),
-    blindspots: str(parsed.blindspots, "blindspots"),
-    verdict: str(parsed.verdict, "verdict"),
+    consensus: stripPanelMeta(str(parsed.consensus, "consensus")),
+    divergence: stripPanelMeta(str(parsed.divergence, "divergence")),
+    blindspots: stripPanelMeta(str(parsed.blindspots, "blindspots")),
+    verdict: stripPanelMeta(str(parsed.verdict, "verdict")),
   };
+}
+
+/**
+ * Strip panel-structure meta-commentary from Judge output.
+ *
+ * When the Judge receives multiple panel analyses, it tends to reference them
+ * by label ("Expert 1 says...", "the second expert argues...") in the final
+ * verdict — even when explicitly told not to. This leaks internal pipeline
+ * structure into user-facing output. This function rewrites those references
+ * into neutral prose so the verdict reads as a self-contained analysis.
+ *
+ * Applied to each verdict field after parsing. Conservative: only touches
+ * "expert"/"panel" references, leaves all other content intact.
+ */
+function stripPanelMeta(text: string): string {
+  return text
+    .replace(/\bthe two experts\b/gi, "the analyses")
+    .replace(/\bboth experts\b/gi, "both analyses")
+    .replace(/\bneither expert\b/gi, "none of the analyses")
+    .replace(/\bthe experts['']?s?\b/gi, "the analyses")
+    .replace(/\bexpert\s*1\b/gi, "one analysis")
+    .replace(/\bexpert\s*2\b/gi, "another analysis")
+    .replace(/\bexpert\s*3\b/gi, "a third analysis")
+    .replace(/\bthe first expert\b/gi, "one analysis")
+    .replace(/\bthe second expert\b/gi, "another analysis")
+    .replace(/\bthe third expert\b/gi, "a third analysis")
+    .replace(/\bexpert[s]?\b/gi, "analyses")
+    .replace(/\bpanel\s*1\b/gi, "one analysis")
+    .replace(/\bpanel\s*2\b/gi, "another analysis")
+    .replace(/\bthe first panel\b/gi, "one analysis")
+    .replace(/\bthe second panel\b/gi, "another analysis")
+    .replace(/\bpanel[s]?\b/gi, "analyses")
+    // Clean up doubled spaces from replacements
+    .replace(/  +/g, " ");
 }
 
 /* ------------------------------------------------------------------ *

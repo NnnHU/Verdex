@@ -73,7 +73,7 @@ const realFieldCount = (r: ModeInTrace) =>
  *  (the experts genuinely agreed), so we match only true refusal patterns. */
 const JUNK_RE = /extracted knowledge.*(empty|not provided|missing|was not)|unable to (produce|answer|provide) a (factual |real )?answer|cannot (produce|provide) (a |an )?(factual |real )?answer/i;
 function isUsableOutput(r: ModeInTrace): boolean {
-  if (realFieldCount(r) < 3) return false;
+  if (realFieldCount(r) < 2) return false;
   const blob = `${r.fields.consensus} ${r.fields.divergences} ${r.fields.blindspots} ${r.fields.verdict}`;
   if (JUNK_RE.test(blob)) return false;
   // Also reject if all four fields together are suspiciously short.
