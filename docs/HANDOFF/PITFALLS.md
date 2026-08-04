@@ -1,7 +1,7 @@
 # ⚠️ Pitfalls (Never Step on These Again)
 
-> 9 real pitfalls + 2 architecture lessons + 2 benchmark-era pitfalls. New sessions must read this first.
-> Last updated: 2026-08-02
+> 9 real pitfalls + 2 architecture lessons + 4 benchmark-era pitfalls. New sessions must read this first.
+> Last updated: 2026-08-03
 
 ---
 
@@ -109,3 +109,21 @@
 **Root cause**: `parseJudgeResponse` emits non-empty placeholder strings on failure (`"(could not parse structured consensus)"`, `"(judge returned no content)"`). A naive "non-empty field = success" check counted these placeholders as success, hiding the real ~31% failure rate of single-shot mode.
 **Fix**: Introduced `isPlaceholder()` to exclude parse-fallback strings; success requires *real* content, not just non-empty strings.
 **Lesson**: *The most dangerous failures are the ones that look like success.* Always sanity-check "too clean" results against plausibility, and define success by content validity — not by structural non-emptiness. This bug would have made the entire benchmark worthless if not caught.
+
+---
+
+## Benchmark Pitfall 3: "Plain text, not JSON" triggers DeepSeek empty completions
+
+**Symptom**: the extract step returned empty on 6/13 cases even with 4× retry.
+**Root cause**: the benchmark's extract prompt said "Output plain text notes, not JSON" — asking a JSON-tuned model (DeepSeek) to suppress JSON triggered empty completions.
+**Fix**: aligned the extract prompt to the production path (JSON output, system message, temp 0.3, maxTokens 8192). Usable-case rate rose 5/13 → 13/13.
+**Lesson**: when a model is RLHF'd for a specific output format (JSON), asking it to suppress that format is a reliability risk. Test with the production prompt, not a divergent benchmark-only variant.
+
+---
+
+## Benchmark Pitfall 4: Judge leaks "Expert 1/2" panel meta-structure into final output
+
+**Symptom**: M3 (multi-model) verdict contained "Expert 1 stresses... Expert 2 frames..." — leaking internal pipeline structure into user-facing output.
+**Root cause**: DeepSeek's Judge, when given multiple analyses, persistently invents "Expert N" labels to organize them — even when explicitly told not to (3 rounds of prompt rewrites failed).
+**Fix**: `stripPanelMeta()` in `parseJudgeResponse` — deterministic post-processing that rewrites "Expert 1/2" → "one analysis / another analysis". Not dependent on model compliance.
+**Lesson**: when a model behavior is persistent despite prompt instructions, fix it at the engine layer (post-processing), not by arguing with the model. Negative prompt instructions ("don't do X") are unreliable.

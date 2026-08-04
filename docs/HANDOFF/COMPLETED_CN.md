@@ -1,7 +1,7 @@
 # 已完成功能清单
 
 > v0.2.2 · 全部 ✅ 验证通过（88/88 测试 · tsc 0 · build OK）
-> 最后更新：2026-08-02
+> 最后更新：2026-08-03
 
 ## 核心编排
 
@@ -85,6 +85,15 @@
 | **导出字段错位** | services/assetPacker.ts | `packExtractAsset` 现在能识别 extract 数据里的四字段 verdict 形状并正确拆分取值（而不是把四个字段全部拼成一坨）；+3 个回归测试 |
 | **导出冗余区段** | services/exporters/index.ts | 当 Markdown / Claude-Skill 导出器中 "Structured Data" 区段与四个 verdict 字段重复时，跳过该区段；+1 个回归测试 |
 | **Panel 空响应重试** | services/moaEngine.ts | `runPanel` 在空完成时也会重试（不只是抛错时才重试）—— 针对 benchmark 中观察到的系统性空响应问题 |
+
+## P2 执行理解修复
+
+| 修复 | 文件 | 说明 |
+|---|---|---|
+| **Extract prompt 对齐** | scripts/benchmark.ts | Extract prompt 对齐到生产路径（JSON、system msg、temp 0.3、maxTokens 8192）；消除了 6/13 个空响应 |
+| **Judge Expert 泄露清理** | services/moaEngine.ts | `parseJudgeResponse` 中的 `stripPanelMeta()` 把「Expert 1/2」改写成中性叙述；M3 泄露 10/13 → 0/13 |
+| **Judge prompt 改写** | services/moaEngine.ts | 移除「expert」框架；renderPanelBlock 改用「Analysis from <model>」标题 |
+| **质量 benchmark（干净）** | bench-results/ | 5-case 盲评：M3 胜过 M2（accuracy 4.6 vs 4.2，pref 9/10 vs 1/10） |
 
 ## Benchmark 测试架（P1）
 

@@ -1,7 +1,7 @@
 # Verdex 交接文档
 
 > 写给一个**完全没有上下文的新会话**。读本文件 + 按需查看子文档，即可接手开发。
-> v0.2.2 · 2026-08-02 · 核心功能 + Knowledge Vault + 步骤式配置栏 + P0 bug 修复 + P1 Execution Benchmark 全部完成
+> v0.2.2 · 2026-08-03 · 核心功能 + Knowledge Vault + 步骤式配置栏 + P0 bug 修复 + P1 Execution Benchmark + P2 执行理解修复 全部完成
 
 ---
 
@@ -25,19 +25,20 @@
 
 5 步引导流程：❶任务 → ❷文档 → ❸提取结构 → ❹分析配置 → ❺选项。按 taskType 条件显示。
 
-## 当前状态（2026-08-02）
+## 当前状态（2026-08-03）
 
-**所有核心功能 + Knowledge Vault 5 阶段 + 步骤式配置栏 + P0 bug 修复 + P1 Execution Benchmark 全部完成。88/88 测试通过。tsc 零错误。build 成功。**
+**所有核心功能 + Knowledge Vault 5 阶段 + 步骤式配置栏 + P0 bug 修复 + P1 Execution Benchmark + P2 执行理解修复 全部完成。88/88 测试通过。tsc 零错误。build 成功。**
 
 ### P1 Benchmark 证明了什么
 
 - **可靠性：** 任务分解（extract→analyze→judge）把成功率从 ~31% 提到 ~92%；单靠重试只加 +8 pts。驱动因素是任务分解 —— 不是重试。
 - **质量：** 多模型 Panel+Judge 在 accuracy/coverage/overall/hallucination 上胜过单模型流水线（盲评双 LLM 评分，7/7 评分者一致，人工锚点 3/3 一致）。
+- **质量（P2 后干净的 5-case 结果）：** 在修复了 extract 空响应和 Judge 的「Expert 1/2」泄露（两者此前都在掩盖 M3 真实的质量优势）之后，一次干净的盲评显示 M3 胜过 M2 —— accuracy 4.6 vs 4.2、coverage 4.9 vs 3.6、overall 4.7 vs 3.6、preference 9/10 vs 1/10。这推翻了早先被污染的结果（那次泄露让 M3 输了 5/22）。
 - 完整报告：工程报告（见独立论文仓库，待发布） · 过程：[`BENCHMARK_JOURNEY_CN.md`](./BENCHMARK_JOURNEY_CN.md)
 
 ### 下一步（详见 [ROADMAP-NEXT_CN.md](./ROADMAP-NEXT_CN.md)）
 
-1. **P2 —— 执行理解：** 流水线为什么能赢？Trace 审视、失败分类学、修复 extract 空响应缺陷。
+1. **P2 —— 执行理解：** 流水线为什么能赢？Trace 审视、失败分类学。（extract 空响应和 Judge Expert 泄露缺陷已修复 —— 见 PITFALLS_CN.md 坑 3 和坑 4。）
 2. **P3 —— 真实用户 Benchmark：** 用户能否感知到质量差距？（~20 位用户，需招募）
 3. **P4 —— Knowledge Representation：** 推迟到 P2/P3 表明什么值得持久化之后。
 4. **不做：** IR Schema 设计、Graphify 代码、在没数据情况下继续架构理论讨论。
@@ -68,7 +69,7 @@
 |---|---|
 | [COMPLETED.md](./COMPLETED_CN.md) | 已完成功能清单（模块 + 文件位置） |
 | [ROADMAP-NEXT.md](./ROADMAP-NEXT_CN.md) | 下一步计划（P1 benchmark 后修订） |
-| [PITFALLS.md](./PITFALLS_CN.md) | ⚠️ 踩过的坑（9 个 + 2 个架构教训 + 2 个 benchmark 时代的坑） |
+| [PITFALLS.md](./PITFALLS_CN.md) | ⚠️ 踩过的坑（9 个 + 2 个架构教训 + 4 个 benchmark 时代的坑） |
 | [BENCHMARK_JOURNEY.md](./BENCHMARK_JOURNEY_CN.md) | 🔬 完整的 P0→P1 过程档案（实验、bug、外部评审） |
 | 工程报告（独立论文仓库 —— 待发布） | 📄 工程报告（那件"硬资产"—— 可复现 benchmark） |
 | [../MULTI_MODEL_REVIEW.md](../MULTI_MODEL_REVIEW_CN.md) | 六模型架构评审（含优先级 + Graphify 评估） |

@@ -1,7 +1,7 @@
 # Completed Features Checklist
 
 > v0.2.2 · All ✅ Verified (88/88 tests · tsc 0 · build OK)
-> Last updated: 2026-08-02
+> Last updated: 2026-08-03
 
 ## Core Orchestration
 
@@ -85,6 +85,15 @@
 | **Export field-mixing** | services/assetPacker.ts | `packExtractAsset` now detects the four-field verdict shape in extract data and splits values correctly (instead of joining all four into one blob); +3 regression tests |
 | **Export redundant section** | services/exporters/index.ts | Markdown / Claude-Skill exporters skip the "Structured Data" section when it duplicates the four verdict fields; +1 regression test |
 | **Panel empty-response retry** | services/moaEngine.ts | `runPanel` retries on empty completion (not just thrown errors) — addresses the systemic empty-response problem seen in benchmarks |
+
+## P2 Execution-Understanding Fixes
+
+| Fix | File | Description |
+|---|---|---|
+| **Extract prompt alignment** | scripts/benchmark.ts | Extract prompt aligned to production path (JSON, system msg, temp 0.3, maxTokens 8192); eliminated 6/13 empty responses |
+| **Judge Expert-leak cleanup** | services/moaEngine.ts | `stripPanelMeta()` in parseJudgeResponse rewrites "Expert 1/2" → neutral prose; M3 leak 10/13 → 0/13 |
+| **Judge prompt rewrite** | services/moaEngine.ts | Removed "expert" framing; renderPanelBlock uses "Analysis from <model>" headers |
+| **Quality benchmark (clean)** | bench-results/ | 5-case blinded grading: M3 beats M2 (accuracy 4.6 vs 4.2, pref 9/10 vs 1/10) |
 
 ## Benchmark Harness (P1)
 

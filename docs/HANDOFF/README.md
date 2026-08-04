@@ -1,7 +1,7 @@
 # Verdex Handoff Document
 
 > Written for a **brand-new session with zero context**. Read this file + consult the sub-documents as needed, and you can take over development.
-> v0.2.2 · 2026-08-02 · Core features + Knowledge Vault + stepped config bar + P0 bug fixes + P1 Execution Benchmark all complete
+> v0.2.2 · 2026-08-03 · Core features + Knowledge Vault + stepped config bar + P0 bug fixes + P1 Execution Benchmark + P2 execution-understanding fixes all complete
 
 ---
 
@@ -25,19 +25,20 @@ An independent sidebar entry for asset management: browse / search / categorize 
 
 A 5-step guided flow: ❶ Task → ❷ Document → ❸ Extraction structure → ❹ Analysis config → ❺ Options. Conditionally displayed based on taskType.
 
-## Current Status (2026-08-02)
+## Current Status (2026-08-03)
 
-**All core features + Knowledge Vault 5 stages + stepped config bar + P0 bug fixes + P1 Execution Benchmark are complete. 88/88 tests passing. tsc zero errors. Build successful.**
+**All core features + Knowledge Vault 5 stages + stepped config bar + P0 bug fixes + P1 Execution Benchmark + P2 execution-understanding fixes are complete. 88/88 tests passing. tsc zero errors. Build successful.**
 
 ### What was proven by the P1 Benchmark
 
 - **Reliability:** task decomposition (extract→analyze→judge) lifts success from ~31% to ~92%; retry alone adds only +8 pts. Decomposition — not retry — is the driver.
 - **Quality:** multi-model Panel+Judge beats single-model pipeline on accuracy/coverage/overall/hallucination (blinded dual-LLM grading, 7/7 judge agreement, human-anchored 3/3).
+- **Quality (clean 5-case result, post-P2):** after fixing the extract empty-response and the Judge "Expert 1/2" leak (both of which had been masking M3's real quality advantage), a clean blinded grading shows M3 beats M2 — accuracy 4.6 vs 4.2, coverage 4.9 vs 3.6, overall 4.7 vs 3.6, preference 9/10 vs 1/10. This reverses the earlier polluted result where the leak made M3 lose 5/22.
 - Full report: the Engineering Report (in the separate paper repository, to be published) · process: [`BENCHMARK_JOURNEY.md`](./BENCHMARK_JOURNEY.md)
 
 ### Next Steps (see [ROADMAP-NEXT.md](./ROADMAP-NEXT.md) for detail)
 
-1. **P2 — Execution Understanding:** why does the pipeline win? Trace inspection, failure taxonomy, fix the extract empty-response defect.
+1. **P2 — Execution Understanding:** why does the pipeline win? Trace inspection, failure taxonomy. (Extract empty-response and Judge Expert-leak defects already fixed — see PITFALLS.md pitfalls 3 & 4.)
 2. **P3 — Real User Benchmark:** do users perceive the quality gap? (~20 users, requires recruitment)
 3. **P4 — Knowledge Representation:** deferred until P2/P3 show what's worth persisting.
 4. **Not doing:** IR Schema design, Graphify code, more architecture theory without data.
@@ -68,7 +69,7 @@ A 5-step guided flow: ❶ Task → ❷ Document → ❸ Extraction structure →
 |---|---|
 | [COMPLETED.md](./COMPLETED.md) | Completed feature list (modules + file locations) |
 | [ROADMAP-NEXT.md](./ROADMAP-NEXT.md) | Next-step plan (revised after P1 benchmark) |
-| [PITFALLS.md](./PITFALLS.md) | ⚠️ Pitfalls (9 + 2 architecture lessons + 2 benchmark-era pitfalls) |
+| [PITFALLS.md](./PITFALLS.md) | ⚠️ Pitfalls (9 + 2 architecture lessons + 4 benchmark-era pitfalls) |
 | [BENCHMARK_JOURNEY.md](./BENCHMARK_JOURNEY.md) | 🔬 Full P0→P1 process archive (experiments, bugs, external reviews) |
 | Engineering Report (separate paper repository — to be published) | 📄 Engineering Report (the "hard asset" — reproducible benchmark) |
 | [../MULTI_MODEL_REVIEW.md](../MULTI_MODEL_REVIEW.md) | Six-model architecture review (includes priorities + Graphify assessment) |

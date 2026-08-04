@@ -1,7 +1,7 @@
 # ⚠️ 踩过的坑（绝对不要再踩）
 
-> 9 个真实踩过的坑 + 2 个架构教训 + 2 个 benchmark 时代的坑。新会话务必先读。
-> 最后更新：2026-08-02
+> 9 个真实踩过的坑 + 2 个架构教训 + 4 个 benchmark 时代的坑。新会话务必先读。
+> 最后更新：2026-08-03
 
 ---
 
@@ -109,3 +109,21 @@
 **根因**：`parseJudgeResponse` 在失败时会吐出非空的占位字符串（`"(could not parse structured consensus)"`、`"(judge returned no content)"`）。一个天真的"非空字段 = 成功"判定把这些占位符算成了成功，于是隐藏了单次 mode 真实约 31% 的失败率。
 **修复**：引入 `isPlaceholder()` 把解析回退字符串排除掉；成功要求的是*真实*内容，而不只是非空字符串。
 **教训**：*最危险的失败，是那些看起来像成功的失败。* 永远拿"合理性"去对账那些"过于干净"的结果，并按内容有效性 —— 而不是结构上的非空 —— 来定义成功。这个 bug 如果没被抓出来，会让整个 benchmark 毫无价值。
+
+---
+
+## Benchmark 坑 3：「输出纯文本，不要 JSON」触发 DeepSeek 空响应
+
+**症状**：extract 步骤即便 4× 重试，仍在 6/13 个 cases 上返回空。
+**根因**：benchmark 的 extract prompt 写的是「输出纯文本笔记，不要 JSON」—— 让一个被 JSON 调校过的模型（DeepSeek）去压制 JSON，触发了空响应。
+**修复**：把 extract prompt 对齐到生产路径（JSON 输出、system message、temp 0.3、maxTokens 8192）。可用 case 比例 5/13 → 13/13。
+**教训**：当一个模型为某种特定输出格式（JSON）做过 RLHF 时，让它压制那种格式是一个可靠性风险。要用生产 prompt 测试，而不是用一个偏离的、benchmark 专用的变体。
+
+---
+
+## Benchmark 坑 4：Judge 把「Expert 1/2」面板元结构泄露进最终输出
+
+**症状**：M3（多模型）的裁决里出现「Expert 1 stresses... Expert 2 frames...」—— 把内部流水线结构泄露进了用户可见的输出。
+**根因**：DeepSeek 的 Judge 在拿到多份分析时，会顽固地编造「Expert N」标签来组织它们 —— 即便被明确禁止（3 轮 prompt 改写都失败了）。
+**修复**：`parseJudgeResponse` 里的 `stripPanelMeta()` —— 一个确定性的后处理，把「Expert 1/2」改写成「一份分析 / 另一份分析」。不依赖模型是否配合。
+**教训**：当一种模型行为顽固到 prompt 指令都压不住时，要在引擎层（后处理）修它，而不是去和模型争论。负向 prompt 指令（「不要做 X」）是不可靠的。
